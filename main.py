@@ -1,8 +1,10 @@
 # main.py - Your Production API Backend
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
+
+# --- NEW: Import the CORS middleware ---
+from fastapi.middleware.cors import CORSMiddleware
 
 # Import our existing RAG modules
 import document_processor
@@ -11,16 +13,17 @@ import llm_interface
 
 app = FastAPI()
 
-# --- IMPORTANT: CORS Middleware ---
-# This allows your JavaScript widget (running on a different domain)
-# to make requests to this API.
+# --- NEW: Add the CORS middleware to your app ---
+# This is the "permission slip" that tells browsers it's okay to connect.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict this to specific domains
+    allow_origins=["*"],  # Allows all origins (e.g., 'null', 'http://localhost:3000')
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allows all headers
 )
+# --- END OF NEW SECTION ---
+
 
 # Define the request data structure
 class ChatRequest(BaseModel):
@@ -29,11 +32,18 @@ class ChatRequest(BaseModel):
 
 @app.post("/chat")
 def chat_endpoint(request: ChatRequest):
-    # ... (embedding and retrieval code is the same) ...
+    """This function is called by the JavaScript widget."""
+    print(f"Received question for business {request.businessId}: {request.question}")
+    
+    query_embedding = document_processor.generate_embeddings([request.question])[0]
+    retrieved_texts = vector_store_manager.search_faiss_index(request.businessId, query_embedding)
+
+    if not retrieved_texts:
+        return {"answer": "I'm sorry, but I couldn't find any information related to that question."}
     
     context = "\n\n".join(retrieved_texts)
     
-    # --- COPY THE FULL PROMPT HERE ---
+    # The full system prompt for the bot's personality
     system_prompt = f"""
     You are a friendly, helpful, and professional customer service AI assistant.
     Your personality should be welcoming and conversational.

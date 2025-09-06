@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", function() {
     
     // Hardcode the business ID for this test file.
     // **IMPORTANT**: Make sure you have registered a business and that its ID exists in your /data/ folder.
-    const businessId = "your_business_id_here"; // <-- Replace this with a real ID from your dashboard
+    const businessId = "770a8c4a-9632-495e-9a15-9d5d0f77e8fb"; // <-- Replace this with a real ID from your dashboard
 
     // Create the HTML structure of the widget
     const container = document.getElementById('chatbot-container');
