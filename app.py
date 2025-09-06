@@ -1,30 +1,25 @@
-# app.py (Corrected Version)
+# app.py (Updated with Advanced Prompt Engineering)
 import streamlit as st
 import os
-import uuid # For generating unique business IDs
+import uuid
 from dotenv import load_dotenv
 
-# Import our custom modules
 import document_processor
 import vector_store_manager
 import llm_interface
 
-load_dotenv() # Load environment variables
+load_dotenv()
 
-# --- Streamlit Page Configuration ---
 st.set_page_config(layout="wide", page_title="AI Business Chatbot Builder")
 
-# --- Session State Initialization ---
 if 'business_data' not in st.session_state:
-    st.session_state['business_data'] = {} # Stores {business_id: {'name': str, 'index': faiss_index, 'texts': list_of_texts}}
+    st.session_state['business_data'] = {}
 if 'selected_business_id' not in st.session_state:
     st.session_state['selected_business_id'] = None
 if 'chat_history' not in st.session_state:
-    st.session_state['chat_history'] = {} # Stores chat history per business_id
+    st.session_state['chat_history'] = {}
 
-# --- Helper Functions ---
 def process_uploaded_content(business_id, raw_content):
-    """Processes raw text content into chunks, embeddings, and updates FAISS."""
     if not raw_content or not raw_content.strip():
         st.warning(f"No content to process for {business_id}.")
         return
@@ -32,25 +27,18 @@ def process_uploaded_content(business_id, raw_content):
     st.info(f"Processing content for business {business_id}...")
     text_chunks = document_processor.chunk_text(raw_content)
     embeddings = document_processor.generate_embeddings(text_chunks)
-
-    # --- THIS IS THE CORRECTED SECTION ---
-    # Get the existing data for the business
     business_info = st.session_state['business_data'].get(business_id, {})
     current_index = business_info.get('index')
     current_texts = business_info.get('texts', [])
-    business_name = business_info.get('name', business_id) # Keep the name
+    business_name = business_info.get('name', business_id)
 
-    # If this is the first time, create a new index
     if current_index is None:
         embedding_dim = document_processor.EMBEDDING_MODEL.get_sentence_embedding_dimension()
         current_index, current_texts = vector_store_manager.create_or_load_faiss_index(business_id, embedding_dimension=embedding_dim)
-    # --- END OF CORRECTION ---
 
-    # Add new data to the index
     new_index, new_texts = vector_store_manager.add_embeddings_to_faiss(
         business_id, embeddings, text_chunks, current_index, current_texts
     )
-    # Update the session state with the new index, texts, and preserve the name
     st.session_state['business_data'][business_id] = {
         'name': business_name,
         'index': new_index,
@@ -58,30 +46,26 @@ def process_uploaded_content(business_id, raw_content):
     }
     st.success(f"Knowledge base updated for {business_id} with {len(text_chunks)} new chunks.")
 
-
-# --- Sidebar for Navigation ---
 st.sidebar.title("Navigation")
 page_selection = st.sidebar.radio("Go to", ["Business Dashboard", "Simulated Chat"])
 
-# --- Main Content Area ---
 st.title("AI Business Chatbot Builder")
 
 if page_selection == "Business Dashboard":
     st.header("Business Onboarding & Knowledge Base Management")
-
+    # ... (The Business Dashboard code remains exactly the same as before) ...
     with st.expander("Register New Business / Manage Existing", expanded=True):
         new_business_name = st.text_input("New Business Name (e.g., 'Acme Corp')", key="new_biz_name")
         if st.button("Register Business"):
             if new_business_name:
-                business_id = str(uuid.uuid4()) # Generate unique ID
+                business_id = str(uuid.uuid4())
                 st.session_state['business_data'][business_id] = {
                     'name': new_business_name,
-                    'index': None, # Will be loaded/created on first upload
+                    'index': None,
                     'texts': []
                 }
                 st.success(f"Business '{new_business_name}' registered with ID: {business_id}")
                 st.session_state['selected_business_id'] = business_id
-                # Use st.rerun() to immediately reflect the change in the selectbox
                 st.rerun()
             else:
                 st.error("Please enter a business name.")
@@ -92,7 +76,6 @@ if page_selection == "Business Dashboard":
                 data.get('name', biz_id): biz_id
                 for biz_id, data in st.session_state['business_data'].items()
             }
-            # Find the index of the currently selected business for the selectbox default
             current_selection_index = 0
             if st.session_state['selected_business_id']:
                 try:
@@ -131,12 +114,10 @@ if page_selection == "Business Dashboard":
                         os.remove(temp_file_path)
                     elif uploaded_file.type == "text/plain":
                         file_content = uploaded_file.getvalue().decode("utf-8")
-
                     if file_content:
                         process_uploaded_content(current_business_id, file_content)
             else:
                 st.warning("Please upload files before processing.")
-
 
         st.write("---")
         st.subheader("Scrape Website URL")
@@ -160,6 +141,7 @@ if page_selection == "Business Dashboard":
         """, language="html")
         st.caption("This code snippet would be placed on your business website.")
 
+
 elif page_selection == "Simulated Chat":
     st.header("Simulated Chat with Your AI Agent")
 
@@ -180,41 +162,58 @@ elif page_selection == "Simulated Chat":
         if selected_chat_business_id not in st.session_state['chat_history']:
             st.session_state['chat_history'][selected_chat_business_id] = []
 
-        st.subheader(f"Chat with {st.session_state['business_data'][selected_chat_business_id].get('name', selected_chat_business_id)} Bot")
+        st.subheader(f"Chat with {selected_chat_business_display_name} Bot")
 
-        # Display chat messages from history
         for message in st.session_state['chat_history'][selected_chat_business_id]:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
-        # Chat input
         if prompt := st.chat_input("Ask your question here..."):
             st.session_state['chat_history'][selected_chat_business_id].append({"role": "user", "content": prompt})
             with st.chat_message("user"):
                 st.markdown(prompt)
 
-            # Generate bot response
             with st.chat_message("assistant"):
                 with st.spinner("Thinking..."):
-                    # 1. Embed user query
                     query_embedding = document_processor.generate_embeddings([prompt])[0]
-
-                    # 2. Retrieve relevant info from FAISS
                     retrieved_texts = vector_store_manager.search_faiss_index(selected_chat_business_id, query_embedding)
 
                     if not retrieved_texts:
                         response = "I couldn't find any relevant information in the knowledge base for that question. Please try rephrasing or ask about something else."
                     else:
                         context = "\n\n".join(retrieved_texts)
-                        full_prompt = (
-                            f"You are a helpful AI assistant for the business '{selected_chat_business_display_name}'. "
-                            "Answer the user's question ONLY based on the following retrieved information. "
-                            "If the answer cannot be found in the provided information, state that you don't know.\n\n"
-                            f"Retrieved Information:\n{context}\n\n"
-                            f"User Question: {prompt}"
-                        )
-                        # 3. LLM generates natural reply
-                        response = llm_interface.generate_response_with_groq(full_prompt)
+
+                        # --- NEW: DETAILED SYSTEM PROMPT FOR PERSONA ---
+                        system_prompt = f"""
+                        You are a friendly, helpful, and professional customer service AI assistant for the company '{selected_chat_business_display_name}'.
+                        Your personality should be welcoming and conversational.
+
+                        **Your Instructions:**
+                        1.  **Primary Goal:** Your main purpose is to answer the user's question based *only* on the "Retrieved Information" provided below.
+                        2.  **Detailed Answers:** When the user asks about the company, use the retrieved information to provide a detailed, clear, and comprehensive explanation. Use formatting like bullet points or bold text if it helps make the answer easier to understand.
+                        3.  **Friendly Tone:** Always maintain a positive and friendly tone. Start your answers with a friendly greeting (e.g., "Great question!", "Certainly!", "I can help with that!").
+                        4.  **Handling Unknowns:** If the answer to a question cannot be found in the "Retrieved Information," you MUST say: "I'm sorry, but I couldn't find specific information about that in our knowledge base. Is there anything else I can help you with?" DO NOT make up answers.
+                        5.  **General Conversation:** If the user's question is a simple greeting or small talk (like "hello", "how are you?"), respond naturally and friendly without mentioning the retrieved information.
+                        """
+
+                        # --- NEW: USER PROMPT WITH CONTEXT ---
+                        user_prompt_with_context = f"""
+                        **Retrieved Information:**
+                        ---
+                        {context}
+                        ---
+
+                        **User's Question:** {prompt}
+                        """
+
+                        # --- NEW: CONSTRUCT THE MESSAGE PAYLOAD ---
+                        messages_payload = [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt_with_context}
+                        ]
+
+                        # --- NEW: CALL THE UPDATED FUNCTION ---
+                        response = llm_interface.generate_response_with_groq(messages_payload)
 
                 st.markdown(response)
                 st.session_state['chat_history'][selected_chat_business_id].append({"role": "assistant", "content": response})

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot Widget</title>
+    <style>
+        /* CSS for the Chatbot Widget */
+
+        /* The Chat Bubble */
+        #chat-bubble {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background-color: #007bff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            z-index: 9998;
+            transition: transform 0.2s;
+        }
+
+        #chat-bubble:hover {
+            transform: scale(1.1);
+        }
+
+        #chat-bubble svg {
+            width: 32px;
+            height: 32px;
+            fill: white;
+        }
+
+        /* The Chat Window */
+        #chat-window {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 350px;
+            height: 500px;
+            background-color: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            /* Start hidden */
+            opacity: 0;
+            transform: translateY(20px);
+            pointer-events: none;
+            transition: opacity 0.3s, transform 0.3s;
+            z-index: 9999;
+        }
+
+        /* Show the window when 'open' class is added */
+        #chat-window.open {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        /* Header */
+        #chat-header {
+            background-color: #007bff;
+            color: white;
+            padding: 15px;
+            font-family: sans-serif;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        
+        /* Message Area */
+        #chat-messages {
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto;
+            font-family: sans-serif;
+            line-height: 1.5;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 10px 15px;
+            border-radius: 20px;
+            max-width: 80%;
+        }
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+        .bot-message {
+            background-color: #f1f1f1;
+            color: #333;
+            align-self: flex-start;
+        }
+        .typing-indicator {
+            color: #999;
+            font-style: italic;
+        }
+
+        /* Input Area */
+        #chat-input-container {
+            border-top: 1px solid #eee;
+            padding: 10px;
+            display: flex;
+        }
+        #chat-input {
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            padding: 10px 15px;
+            flex-grow: 1;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        #chat-input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        #send-btn {
+            background-color: #007bff;
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- This is the "mount point" for our widget -->
+    <div id="chatbot-container"></div>
+
+    <!-- This is the placeholder script tag that a client would use.
+         In a real scenario, this would be a separate .js file. -->
+    <script>
+        // JAVASCRIPT for the Chatbot Widget
+
+        (function() {
+            // --- CONFIGURATION ---
+            // In a real product, you would deploy your Python backend and put the URL here.
+            const API_BASE_URL = "http://localhost:8000"; // IMPORTANT: See explanation below
+            
+            // --- WIDGET INITIALIZATION ---
+            function init() {
+                // Find the script tag to get the businessId
+                const scriptTag = document.querySelector('script[src*="chatbot-widget.js"]');
+                const businessId = new URL(scriptTag.src).searchParams.get('businessId');
+                
+                // For this HTML file example, we'll hardcode it.
+                // In the real .js file, the line above would work.
+                const HARDCODED_BUSINESS_ID = "b37fb24a-e403-430e-8114-0ccdf4275d16";
+
+                if (!HARDCODED_BUSINESS_ID) {
+                    console.error("Chatbot: businessId is missing.");
+                    return;
+                }
+
+                // Create the HTML structure of the widget
+                const container = document.getElementById('chatbot-container');
+                container.innerHTML = `
+                    <div id="chat-bubble">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+                    </div>
+                    <div id="chat-window">
+                        <div id="chat-header">
+                            <span>AI Assistant</span>
+                            <button id="close-btn">&times;</button>
+                        </div>
+                        <div id="chat-messages"></div>
+                        <div id="chat-input-container">
+                            <input type="text" id="chat-input" placeholder="Ask a question...">
+                            <button id="send-btn">Send</button>
+                        </div>
+                    </div>
+                `;
+
+                // Get references to the new DOM elements
+                const chatBubble = document.getElementById('chat-bubble');
+                const chatWindow = document.getElementById('chat-window');
+                const closeBtn = document.getElementById('close-btn');
+                const sendBtn = document.getElementById('send-btn');
+                const chatInput = document.getElementById('chat-input');
+
+                // Add event listeners
+                chatBubble.addEventListener('click', () => toggleChatWindow());
+                closeBtn.addEventListener('click', () => toggleChatWindow());
+                sendBtn.addEventListener('click', () => sendMessage(HARDCODED_BUSINESS_ID));
+                chatInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        sendMessage(HARDCODED_BUSINESS_ID);
+                    }
+                });
+            }
+            
+            function toggleChatWindow() {
+                const chatWindow = document.getElementById('chat-window');
+                chatWindow.classList.toggle('open');
+            }
+            
+            async function sendMessage(businessId) {
+                const input = document.getElementById('chat-input');
+                const messagesContainer = document.getElementById('chat-messages');
+                const question = input.value.trim();
+
+                if (!question) return;
+
+                // Display user's message
+                addMessage(question, 'user');
+                input.value = '';
+                
+                // Show typing indicator
+                const typingIndicator = addMessage('Typing...', 'bot typing-indicator');
+                
+                try {
+                    // --- API CALL TO YOUR BACKEND ---
+                    const response = await fetch(`${API_BASE_URL}/chat`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            question: question,
+                            businessId: businessId,
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error("Network response was not ok.");
+                    }
+
+                    const data = await response.json();
+                    
+                    // Remove typing indicator and add the real bot message
+                    typingIndicator.remove();
+                    addMessage(data.answer, 'bot');
+
+                } catch (error) {
+                    console.error("Error fetching chat response:", error);
+                    typingIndicator.remove();
+                    addMessage("Sorry, I'm having trouble connecting. Please try again later.", 'bot');
+                }
+            }
+
+            function addMessage(text, type) {
+                const messagesContainer = document.getElementById('chat-messages');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${type}-message`;
+                messageDiv.textContent = text;
+                messagesContainer.appendChild(messageDiv);
+                // Scroll to the latest message
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                return messageDiv; // Return the element so we can remove it (for typing indicator)
+            }
+            
+            // Start the widget
+            init();
+
+        })();
+    </script>
+</body>
+</html>

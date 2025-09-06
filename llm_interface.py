@@ -1,5 +1,6 @@
-# llm_interface.py (Updated with the new model)
+# llm_interface.py (Updated for better conversation control)
 import os
+from typing import List, Dict
 from dotenv import load_dotenv
 from groq import Groq
 
@@ -11,22 +12,18 @@ if not GROQ_API_KEY:
 
 client = Groq(api_key=GROQ_API_KEY)
 
-# --- The model name has been updated as per your request ---
-def generate_response_with_groq(prompt: str, model: str = "llama-3.1-70b-versatile") -> str:
+# --- Function now accepts a list of messages for role-playing ---
+def generate_response_with_groq(messages: List[Dict], model: str = "openai/gpt-oss-120b") -> str:
     """
     Generates a response using Groq's chat completion API.
+    Accepts a list of message dictionaries with 'role' and 'content'.
     """
     try:
         chat_completion = client.chat.completions.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
+            messages=messages, # Pass the structured message list directly
             model=model,
-            temperature=0.7,
-            max_tokens=1024,
+            temperature=0.7, # Keep a little creativity
+            max_tokens=2048,
         )
         return chat_completion.choices[0].message.content
     except Exception as e:
