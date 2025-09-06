@@ -1,4 +1,4 @@
-# app.py
+# app.py (Corrected Version)
 import streamlit as st
 import os
 import uuid # For generating unique business IDs
@@ -16,7 +16,7 @@ st.set_page_config(layout="wide", page_title="AI Business Chatbot Builder")
 
 # --- Session State Initialization ---
 if 'business_data' not in st.session_state:
-    st.session_state['business_data'] = {} # Stores {business_id: {'index': faiss_index, 'texts': list_of_texts}}
+    st.session_state['business_data'] = {} # Stores {business_id: {'name': str, 'index': faiss_index, 'texts': list_of_texts}}
 if 'selected_business_id' not in st.session_state:
     st.session_state['selected_business_id'] = None
 if 'chat_history' not in st.session_state:
@@ -25,7 +25,7 @@ if 'chat_history' not in st.session_state:
 # --- Helper Functions ---
 def process_uploaded_content(business_id, raw_content):
     """Processes raw text content into chunks, embeddings, and updates FAISS."""
-    if not raw_content.strip():
+    if not raw_content or not raw_content.strip():
         st.warning(f"No content to process for {business_id}.")
         return
 
@@ -33,20 +33,29 @@ def process_uploaded_content(business_id, raw_content):
     text_chunks = document_processor.chunk_text(raw_content)
     embeddings = document_processor.generate_embeddings(text_chunks)
 
-    # Load/create FAISS index and texts for this business
-    current_index, current_texts = st.session_state['business_data'].get(
-        business_id, (None, [])
-    )
-    if current_index is None: # First time for this business
-        current_index, current_texts = vector_store_manager.create_or_load_faiss_index(
-            business_id, embedding_dimension=document_processor.EMBEDDING_MODEL.get_sentence_embedding_dimension()
-        )
+    # --- THIS IS THE CORRECTED SECTION ---
+    # Get the existing data for the business
+    business_info = st.session_state['business_data'].get(business_id, {})
+    current_index = business_info.get('index')
+    current_texts = business_info.get('texts', [])
+    business_name = business_info.get('name', business_id) # Keep the name
 
-    # Add new data
+    # If this is the first time, create a new index
+    if current_index is None:
+        embedding_dim = document_processor.EMBEDDING_MODEL.get_sentence_embedding_dimension()
+        current_index, current_texts = vector_store_manager.create_or_load_faiss_index(business_id, embedding_dimension=embedding_dim)
+    # --- END OF CORRECTION ---
+
+    # Add new data to the index
     new_index, new_texts = vector_store_manager.add_embeddings_to_faiss(
         business_id, embeddings, text_chunks, current_index, current_texts
     )
-    st.session_state['business_data'][business_id] = {'index': new_index, 'texts': new_texts}
+    # Update the session state with the new index, texts, and preserve the name
+    st.session_state['business_data'][business_id] = {
+        'name': business_name,
+        'index': new_index,
+        'texts': new_texts
+    }
     st.success(f"Knowledge base updated for {business_id} with {len(text_chunks)} new chunks.")
 
 
@@ -60,7 +69,7 @@ st.title("AI Business Chatbot Builder")
 if page_selection == "Business Dashboard":
     st.header("Business Onboarding & Knowledge Base Management")
 
-    with st.expander("Register New Business / Manage Existing"):
+    with st.expander("Register New Business / Manage Existing", expanded=True):
         new_business_name = st.text_input("New Business Name (e.g., 'Acme Corp')", key="new_biz_name")
         if st.button("Register Business"):
             if new_business_name:
@@ -72,7 +81,8 @@ if page_selection == "Business Dashboard":
                 }
                 st.success(f"Business '{new_business_name}' registered with ID: {business_id}")
                 st.session_state['selected_business_id'] = business_id
-                st.rerun() # Rerun to update the selection box
+                # Use st.rerun() to immediately reflect the change in the selectbox
+                st.rerun()
             else:
                 st.error("Please enter a business name.")
 
@@ -82,13 +92,19 @@ if page_selection == "Business Dashboard":
                 data.get('name', biz_id): biz_id
                 for biz_id, data in st.session_state['business_data'].items()
             }
+            # Find the index of the currently selected business for the selectbox default
+            current_selection_index = 0
+            if st.session_state['selected_business_id']:
+                try:
+                    selected_name = st.session_state['business_data'][st.session_state['selected_business_id']].get('name')
+                    current_selection_index = list(business_options.keys()).index(selected_name)
+                except (ValueError, KeyError):
+                    current_selection_index = 0
+
             selected_display_name = st.selectbox(
                 "Choose a business to manage:",
                 options=list(business_options.keys()),
-                index=0 if st.session_state['selected_business_id'] is None else
-                      list(business_options.keys()).index(
-                          st.session_state['business_data'][st.session_state['selected_business_id']].get('name', st.session_state['selected_business_id'])
-                      ) if st.session_state['selected_business_id'] in st.session_state['business_data'] else 0
+                index=current_selection_index
             )
             st.session_state['selected_business_id'] = business_options[selected_display_name]
             st.info(f"Currently managing: **{st.session_state['business_data'][st.session_state['selected_business_id']].get('name', st.session_state['selected_business_id'])}**")
@@ -101,23 +117,26 @@ if page_selection == "Business Dashboard":
 
         st.write("---")
         st.subheader("Upload Documents")
-        uploaded_files = st.file_uploader("Upload PDFs or Text files", type=["pdf", "txt"], accept_multiple_files=True)
-        if uploaded_files:
-            for uploaded_file in uploaded_files:
-                file_content = ""
-                if uploaded_file.type == "application/pdf":
-                    # Streamlit's file_uploader gives a BytesIO object, save it to temp for pypdf
-                    temp_file_path = os.path.join("data", current_business_id, uploaded_file.name)
-                    os.makedirs(os.path.dirname(temp_file_path), exist_ok=True)
-                    with open(temp_file_path, "wb") as f:
-                        f.write(uploaded_file.getbuffer())
-                    file_content = document_processor.get_text_from_pdf(temp_file_path)
-                    os.remove(temp_file_path) # Clean up temp file
-                elif uploaded_file.type == "text/plain":
-                    file_content = uploaded_file.getvalue().decode("utf-8")
-                
-                if file_content:
-                    process_uploaded_content(current_business_id, file_content)
+        uploaded_files = st.file_uploader("Upload PDFs or Text files", type=["pdf", "txt"], accept_multiple_files=True, key=f"upload_{current_business_id}")
+        if st.button("Process Uploaded Files"):
+            if uploaded_files:
+                for uploaded_file in uploaded_files:
+                    file_content = ""
+                    if uploaded_file.type == "application/pdf":
+                        temp_file_path = os.path.join("data", current_business_id, uploaded_file.name)
+                        os.makedirs(os.path.dirname(temp_file_path), exist_ok=True)
+                        with open(temp_file_path, "wb") as f:
+                            f.write(uploaded_file.getbuffer())
+                        file_content = document_processor.get_text_from_pdf(temp_file_path)
+                        os.remove(temp_file_path)
+                    elif uploaded_file.type == "text/plain":
+                        file_content = uploaded_file.getvalue().decode("utf-8")
+
+                    if file_content:
+                        process_uploaded_content(current_business_id, file_content)
+            else:
+                st.warning("Please upload files before processing.")
+
 
         st.write("---")
         st.subheader("Scrape Website URL")
