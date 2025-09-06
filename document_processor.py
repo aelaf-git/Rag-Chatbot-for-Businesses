@@ -1,25 +1,30 @@
-# document_processor.py (Optimized Version)
+# document_processor.py (Final, Decoupled Version)
 import requests
 from bs4 import BeautifulSoup
 from pypdf import PdfReader
 from sentence_transformers import SentenceTransformer
-import streamlit as st # <-- Import Streamlit
 
-# --- THIS IS THE KEY CHANGE ---
-@st.cache_resource
+# --- NEW: Singleton pattern for loading the model ---
+# We will store the loaded model in this global variable.
+EMBEDDING_MODEL = None
+
 def load_embedding_model():
-    """
-    Loads the sentence transformer model and caches it using Streamlit.
-    """
-    print("Loading embedding model...") # This will print only once
+    """Loads the sentence transformer model."""
+    print("Loading embedding model...")
     model = SentenceTransformer('all-MiniLM-L6-v2')
     print("Embedding model loaded.")
     return model
 
-# Load the model using the cached function
-EMBEDDING_MODEL = load_embedding_model()
-# --- END OF KEY CHANGE ---
-
+def get_embedding_model():
+    """
+    Returns the embedding model, loading it if it hasn't been loaded yet.
+    This ensures the model is only loaded once.
+    """
+    global EMBEDDING_MODEL
+    if EMBEDDING_MODEL is None:
+        EMBEDDING_MODEL = load_embedding_model()
+    return EMBEDDING_MODEL
+# --- END OF NEW SECTION ---
 
 def get_text_from_url(url: str) -> str:
     """Scrapes text content from a given URL."""
@@ -65,5 +70,7 @@ def chunk_text(text: str, chunk_size: int = 500, chunk_overlap: int = 50) -> lis
 
 def generate_embeddings(texts: list[str]) -> list:
     """Generates embeddings for a list of text chunks."""
-    embeddings = EMBEDDING_MODEL.encode(texts, convert_to_tensor=False)
+    # Now it calls our new function to get the model
+    model = get_embedding_model()
+    embeddings = model.encode(texts, convert_to_tensor=False)
     return embeddings.tolist()
