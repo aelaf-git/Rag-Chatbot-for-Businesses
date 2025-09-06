@@ -1,4 +1,4 @@
-# llm_interface.py
+# llm_interface.py (Updated with the new model)
 import os
 from dotenv import load_dotenv
 from groq import Groq
@@ -11,7 +11,8 @@ if not GROQ_API_KEY:
 
 client = Groq(api_key=GROQ_API_KEY)
 
-def generate_response_with_groq(prompt: str, model: str = "llama3-8b-8192") -> str:
+# --- The model name has been updated as per your request ---
+def generate_response_with_groq(prompt: str, model: str = "llama-3.1-70b-versatile") -> str:
     """
     Generates a response using Groq's chat completion API.
     """
@@ -25,7 +26,7 @@ def generate_response_with_groq(prompt: str, model: str = "llama3-8b-8192") -> s
             ],
             model=model,
             temperature=0.7,
-            max_tokens=500,
+            max_tokens=1024,
         )
         return chat_completion.choices[0].message.content
     except Exception as e:
