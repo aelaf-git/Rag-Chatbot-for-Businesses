@@ -1,25 +1,35 @@
-# document_processor.py
+# document_processor.py (Optimized Version)
 import requests
 from bs4 import BeautifulSoup
 from pypdf import PdfReader
 from sentence_transformers import SentenceTransformer
-import os
+import streamlit as st # <-- Import Streamlit
 
-# Initialize the embedding model (using a common one from Hugging Face)
-# This will download the model the first time it's run.
-EMBEDDING_MODEL = SentenceTransformer('all-MiniLM-L6-v2')
+# --- THIS IS THE KEY CHANGE ---
+@st.cache_resource
+def load_embedding_model():
+    """
+    Loads the sentence transformer model and caches it using Streamlit.
+    """
+    print("Loading embedding model...") # This will print only once
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+    print("Embedding model loaded.")
+    return model
+
+# Load the model using the cached function
+EMBEDDING_MODEL = load_embedding_model()
+# --- END OF KEY CHANGE ---
+
 
 def get_text_from_url(url: str) -> str:
     """Scrapes text content from a given URL."""
     try:
         response = requests.get(url)
-        response.raise_for_status() # Raise an HTTPError for bad responses (4xx or 5xx)
+        response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
-        # Extract text from common elements, remove script/style
         for script_or_style in soup(['script', 'style']):
             script_or_style.decompose()
         text = soup.get_text()
-        # Clean up whitespace
         lines = (line.strip() for line in text.splitlines())
         chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
         text = '\n'.join(chunk for chunk in chunks if chunk)
@@ -42,8 +52,6 @@ def get_text_from_pdf(file_path: str) -> str:
 
 def chunk_text(text: str, chunk_size: int = 500, chunk_overlap: int = 50) -> list[str]:
     """Splits text into overlapping chunks."""
-    # A simple chunking strategy; for production, consider more sophisticated methods
-    # that respect sentence boundaries.
     chunks = []
     start = 0
     while start < len(text):
@@ -58,4 +66,4 @@ def chunk_text(text: str, chunk_size: int = 500, chunk_overlap: int = 50) -> lis
 def generate_embeddings(texts: list[str]) -> list:
     """Generates embeddings for a list of text chunks."""
     embeddings = EMBEDDING_MODEL.encode(texts, convert_to_tensor=False)
-    return embeddings.tolist() # Convert numpy arrays to lists for easier storage/handling
+    return embeddings.tolist()
