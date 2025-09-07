@@ -1,45 +1,61 @@
 import sqlite3
+import psycopg2
+import psycopg2.extras
+import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
-import os
-import psycopg2
-import psycopg2.extras
+from fastapi.staticfiles import StaticFiles
+from starlette.responses import FileResponse
+from dotenv import load_dotenv
+
+# This will load the .env file for local development
+if os.path.exists('.env'):
+    load_dotenv()
+
+# Import our custom modules
 import document_processor
 import vector_store_manager
 import llm_interface
 
 app = FastAPI()
 
-# --- THIS IS THE CORRECTED CORS BLOCK ---
-# We will explicitly list the domains that are allowed to connect.
+# --- THE DEFINITIVE CORS CONFIGURATION ---
+# This list explicitly allows your frontend domains and local testing origins.
 origins = [
     "https://brilliant-halva-3b002a.netlify.app",  # Your Netlify frontend
-    "http://localhost",                          # For XAMPP testing
-    "http://127.0.0.1",                          # Another localhost variant
-    "null"                                       # To allow local file:// testing
+    "http://localhost",                          # For XAMPP
+    "http://localhost:8080",                     # Common local dev port
+    "http://127.0.0.1",
+    "null"                                       # For file:/// local testing
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,       # Use our specific list of origins
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],         # Allow all methods (GET, POST, etc.)
-    allow_headers=["*"],         # Allow all headers
+    allow_methods=["*"],  # Allows all methods, including OPTIONS, GET, POST
+    allow_headers=["*"],  # Allows all headers
 )
 
 def get_db_connection():
     database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise ValueError("DATABASE_URL environment variable not found.")
+    if "sslmode" not in database_url:
+        database_url += "?sslmode=require"
     conn = psycopg2.connect(database_url)
-    conn.cursor_factory = psycopg2.extras.DictCursor
     return conn
 
-# --- NEW ENDPOINT: To fetch widget configuration ---
+# --- API ENDPOINTS ---
 @app.get("/config/{business_id}")
 def get_config(business_id: str):
     conn = get_db_connection()
-    business = conn.execute('SELECT * FROM businesses WHERE id = ?', (business_id,)).fetchone()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute('SELECT * FROM businesses WHERE id = %s', (business_id,))
+    business = cursor.fetchone()
+    cursor.close()
     conn.close()
     if business is None:
         raise HTTPException(status_code=404, detail="Business not found")
@@ -51,11 +67,12 @@ class ChatRequest(BaseModel):
 
 @app.post("/chat")
 def chat_endpoint(request: ChatRequest):
-    print(f"Received question for business {request.businessId}: {request.question}")
-    
     conn = get_db_connection()
-    business = conn.execute('SELECT * FROM businesses WHERE id = ?', (request.businessId,)).fetchone()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute('SELECT * FROM businesses WHERE id = %s', (request.businessId,))
+    business = cursor.fetchone()
     if business is None:
+        cursor.close()
         conn.close()
         raise HTTPException(status_code=404, detail="Business configuration not found")
 
@@ -71,26 +88,26 @@ def chat_endpoint(request: ChatRequest):
             "formal": "You are a formal and direct AI assistant for '{name}'. Provide precise information without unnecessary pleasantries.",
             "concise": "You are a concise AI assistant for '{name}'. Get straight to the point and provide short, clear answers."
         }
-        
         system_prompt = personality_map.get(business['personality'], personality_map['friendly']).format(name=business['name'])
-        system_prompt += "\n\n**Your Instructions:**..." # Add the rest of your detailed instructions here
-
+        system_prompt += "\n\n**Your Instructions:**..." # Add your detailed instructions here
         user_prompt_with_context = f"Retrieved Information:\n{context}\n\nUser Question:\n{request.question}"
+        messages_payload = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt_with_context}]
         
-        messages_payload = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt_with_context}
-        ]
-        
-        final_answer = llm_interface.generate_response_with_groq(messages_payload)
+        # The backend uses its own environment variable for the API key
+        groq_api_key = os.getenv("GROQ_API_KEY")
+        final_answer = llm_interface.generate_response_with_groq(messages_payload, api_key=groq_api_key)
 
-    # Log the conversation to the database
-    conn.execute('INSERT INTO chat_logs (business_id, question, answer) VALUES (?, ?, ?)',
-                 (request.businessId, request.question, final_answer))
+    cursor.execute('INSERT INTO chat_logs (business_id, question, answer) VALUES (%s, %s, %s)', (request.businessId, request.question, final_answer))
     conn.commit()
+    cursor.close()
     conn.close()
-    
     return {"answer": final_answer}
+
+# This endpoint is no longer needed as we are serving from Netlify
+# but we can keep it for fallback testing.
+@app.get("/script.js")
+async def get_script():
+    return FileResponse('static/script.js')
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
