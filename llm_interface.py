@@ -21,17 +21,16 @@ if not GROQ_API_KEY:
 
 client = Groq(api_key=GROQ_API_KEY)
 # --- Function now accepts a list of messages for role-playing ---
-def generate_response_with_groq(messages: List[Dict], model: str = "openai/gpt-oss-120b") -> str:
+def generate_response_with_groq(messages: List[Dict], api_key: str, model: str = "openai/gpt-oss-120b") -> str:
     """
     Generates a response using Groq's chat completion API.
-    Accepts a list of message dictionaries with 'role' and 'content'.
+    Now accepts an api_key directly.
     """
     try:
+        # Use the passed-in api_key to create the client
+        client = Groq(api_key=api_key)
         chat_completion = client.chat.completions.create(
-            messages=messages, # Pass the structured message list directly
-            model=model,
-            temperature=0.7, # Keep a little creativity
-            max_tokens=2048,
+            # ... rest of the function is the same
         )
         return chat_completion.choices[0].message.content
     except Exception as e:

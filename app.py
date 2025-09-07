@@ -13,7 +13,8 @@ import vector_store_manager
 st.set_page_config(layout="wide", page_title="AI Agent Dashboard")
 
 def get_db_connection():
-    database_url = os.getenv("DATABASE_URL")
+    # This will read the secret from the Streamlit Cloud's secrets manager
+    database_url = st.secrets["DATABASE_URL"]
     conn = psycopg2.connect(database_url)
     conn.cursor_factory = psycopg2.extras.DictCursor
     return conn
@@ -210,8 +211,9 @@ if selected_name:
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_prompt_with_context}
                         ]
+                        groq_api_key = st.secrets["GROQ_API_KEY"]
                         
-                        final_answer = llm_interface.generate_response_with_groq(messages_payload)
+                        final_answer = llm_interface.generate_response_with_groq(messages_payload, api_key=groq_api_key)
 
                     st.markdown(final_answer)
                     # Add bot response to history
