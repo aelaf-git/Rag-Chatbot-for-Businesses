@@ -1,219 +1,175 @@
-# app.py (Updated with Advanced Prompt Engineering)
 import streamlit as st
-import os
+import sqlite3
 import uuid
-from dotenv import load_dotenv
+import os
 
+# Import our custom modules
 import document_processor
 import vector_store_manager
-import llm_interface
 
-load_dotenv()
+st.set_page_config(layout="wide", page_title="AI Agent Dashboard")
 
-st.set_page_config(layout="wide", page_title="AI Business Chatbot Builder")
+def get_db_connection():
+    conn = sqlite3.connect('chatbot_app.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
-if 'business_data' not in st.session_state:
-    st.session_state['business_data'] = {}
-if 'selected_business_id' not in st.session_state:
-    st.session_state['selected_business_id'] = None
-if 'chat_history' not in st.session_state:
-    st.session_state['chat_history'] = {}
+# --- Business Management Functions ---
+def get_all_businesses():
+    conn = get_db_connection()
+    businesses = conn.execute('SELECT * FROM businesses').fetchall()
+    conn.close()
+    return businesses
 
-def process_uploaded_content(business_id, raw_content):
+def update_business_settings(business_id, agent_name, welcome_message, personality, brand_color):
+    conn = get_db_connection()
+    conn.execute('''
+        UPDATE businesses 
+        SET agent_name = ?, welcome_message = ?, personality = ?, brand_color = ?
+        WHERE id = ?
+    ''', (agent_name, welcome_message, personality, brand_color, business_id))
+    conn.commit()
+    conn.close()
+
+# --- Content Processing Function ---
+def process_and_store_content(business_id, raw_content):
     if not raw_content or not raw_content.strip():
         st.warning(f"No content to process for {business_id}.")
         return
 
     st.info(f"Processing content for business {business_id}...")
-    text_chunks = document_processor.chunk_text(raw_content)
-    embeddings = document_processor.generate_embeddings(text_chunks)
-    business_info = st.session_state['business_data'].get(business_id, {})
-    current_index = business_info.get('index')
-    current_texts = business_info.get('texts', [])
-    business_name = business_info.get('name', business_id)
-
-    if current_index is None:
-        embedding_dim = document_processor.EMBEDDING_MODEL.get_sentence_embedding_dimension()
+    with st.spinner("Chunking text, generating embeddings, and updating knowledge base..."):
+        text_chunks = document_processor.chunk_text(raw_content)
+        embeddings = document_processor.generate_embeddings(text_chunks)
+        
+        # This logic is from our old app.py, adapted for the new structure
+        index_dir = os.path.join("data", business_id)
+        os.makedirs(index_dir, exist_ok=True)
+        embedding_dim = document_processor.get_embedding_model().get_sentence_embedding_dimension()
         current_index, current_texts = vector_store_manager.create_or_load_faiss_index(business_id, embedding_dimension=embedding_dim)
 
-    new_index, new_texts = vector_store_manager.add_embeddings_to_faiss(
-        business_id, embeddings, text_chunks, current_index, current_texts
-    )
-    st.session_state['business_data'][business_id] = {
-        'name': business_name,
-        'index': new_index,
-        'texts': new_texts
-    }
+        vector_store_manager.add_embeddings_to_faiss(
+            business_id, embeddings, text_chunks, current_index, current_texts
+        )
     st.success(f"Knowledge base updated for {business_id} with {len(text_chunks)} new chunks.")
 
-st.sidebar.title("Navigation")
-page_selection = st.sidebar.radio("Go to", ["Business Dashboard", "Simulated Chat"])
+# --- Main App ---
+st.title("🤖 AI Agent Dashboard")
 
-st.title("AI Business Chatbot Builder")
+st.sidebar.header("Business Selection")
+businesses = get_all_businesses()
 
-if page_selection == "Business Dashboard":
-    st.header("Business Onboarding & Knowledge Base Management")
-    # ... (The Business Dashboard code remains exactly the same as before) ...
-    with st.expander("Register New Business / Manage Existing", expanded=True):
-        new_business_name = st.text_input("New Business Name (e.g., 'Acme Corp')", key="new_biz_name")
-        if st.button("Register Business"):
-            if new_business_name:
-                business_id = str(uuid.uuid4())
-                st.session_state['business_data'][business_id] = {
-                    'name': new_business_name,
-                    'index': None,
-                    'texts': []
-                }
-                st.success(f"Business '{new_business_name}' registered with ID: {business_id}")
-                st.session_state['selected_business_id'] = business_id
-                st.rerun()
+# --- THIS IS THE CORRECTED SECTION ---
+business_options = {b['name']: b['id'] for b in businesses} if businesses else {}
+selected_name = None
+
+if business_options:
+    selected_name = st.sidebar.selectbox("Select a Business", list(business_options.keys()))
+else:
+    st.sidebar.info("No businesses found. Please register one below.")
+# --- END OF CORRECTION ---
+
+# New Business Registration
+with st.sidebar.expander("Register New Business"):
+    new_business_name = st.text_input("Enter New Business Name")
+    if st.button("Register"):
+        if new_business_name:
+            if new_business_name in business_options:
+                st.sidebar.error("A business with this name already exists.")
             else:
-                st.error("Please enter a business name.")
-
-        st.subheader("Select Existing Business")
-        if st.session_state['business_data']:
-            business_options = {
-                data.get('name', biz_id): biz_id
-                for biz_id, data in st.session_state['business_data'].items()
-            }
-            current_selection_index = 0
-            if st.session_state['selected_business_id']:
-                try:
-                    selected_name = st.session_state['business_data'][st.session_state['selected_business_id']].get('name')
-                    current_selection_index = list(business_options.keys()).index(selected_name)
-                except (ValueError, KeyError):
-                    current_selection_index = 0
-
-            selected_display_name = st.selectbox(
-                "Choose a business to manage:",
-                options=list(business_options.keys()),
-                index=current_selection_index
-            )
-            st.session_state['selected_business_id'] = business_options[selected_display_name]
-            st.info(f"Currently managing: **{st.session_state['business_data'][st.session_state['selected_business_id']].get('name', st.session_state['selected_business_id'])}**")
+                new_id = str(uuid.uuid4())
+                conn = get_db_connection()
+                conn.execute('INSERT INTO businesses (id, name) VALUES (?, ?)', (new_id, new_business_name))
+                conn.commit()
+                conn.close()
+                st.sidebar.success(f"Business '{new_business_name}' registered!")
+                st.rerun()
         else:
-            st.warning("No businesses registered yet. Register one above!")
+            st.sidebar.error("Business name cannot be empty.")
 
-    if st.session_state['selected_business_id']:
-        current_business_id = st.session_state['selected_business_id']
-        st.subheader(f"Knowledge Base for {st.session_state['business_data'][current_business_id].get('name', current_business_id)}")
+# --- Main Dashboard Area ---
+if selected_name:
+    business_id = business_options[selected_name]
+    conn = get_db_connection()
+    current_business = conn.execute('SELECT * FROM businesses WHERE id = ?', (business_id,)).fetchone()
+    conn.close()
 
-        st.write("---")
-        st.subheader("Upload Documents")
-        uploaded_files = st.file_uploader("Upload PDFs or Text files", type=["pdf", "txt"], accept_multiple_files=True, key=f"upload_{current_business_id}")
-        if st.button("Process Uploaded Files"):
+    st.header(f"Managing: {current_business['name']}")
+
+    tab1, tab2, tab3, tab4 = st.tabs(["📚 Knowledge Sources", "🎨 Customize Agent", "🚀 Deploy", "📊 Analytics"])
+
+    with tab1:
+        st.subheader("Upload Knowledge Sources")
+        st.write("Add PDFs, text files, or scrape a website URL to build your agent's knowledge.")
+        
+        uploaded_files = st.file_uploader("Upload PDFs or Text files", type=["pdf", "txt"], accept_multiple_files=True, key=f"upload_{business_id}")
+        if st.button("Process Uploaded Files", key=f"process_upload_{business_id}"):
             if uploaded_files:
                 for uploaded_file in uploaded_files:
-                    file_content = ""
+                    # Logic to save and process files
+                    temp_dir = os.path.join("data", business_id, "temp")
+                    os.makedirs(temp_dir, exist_ok=True)
+                    temp_file_path = os.path.join(temp_dir, uploaded_file.name)
+                    with open(temp_file_path, "wb") as f:
+                        f.write(uploaded_file.getbuffer())
+                    
                     if uploaded_file.type == "application/pdf":
-                        temp_file_path = os.path.join("data", current_business_id, uploaded_file.name)
-                        os.makedirs(os.path.dirname(temp_file_path), exist_ok=True)
-                        with open(temp_file_path, "wb") as f:
-                            f.write(uploaded_file.getbuffer())
-                        file_content = document_processor.get_text_from_pdf(temp_file_path)
-                        os.remove(temp_file_path)
-                    elif uploaded_file.type == "text/plain":
-                        file_content = uploaded_file.getvalue().decode("utf-8")
-                    if file_content:
-                        process_uploaded_content(current_business_id, file_content)
+                        raw_content = document_processor.get_text_from_pdf(temp_file_path)
+                    else:
+                        raw_content = uploaded_file.getvalue().decode("utf-8")
+                    
+                    process_and_store_content(business_id, raw_content)
+                    os.remove(temp_file_path) # Clean up
             else:
                 st.warning("Please upload files before processing.")
 
-        st.write("---")
-        st.subheader("Scrape Website URL")
-        url_to_scrape = st.text_input("Enter URL to scrape (e.g., https://example.com/faq)", key="url_scrape")
-        if st.button("Scrape and Add to KB"):
+        st.subheader("Scrape a Website")
+        url_to_scrape = st.text_input("Enter URL to scrape", key=f"url_{business_id}")
+        if st.button("Scrape and Add", key=f"scrape_{business_id}"):
             if url_to_scrape:
-                with st.spinner(f"Scraping {url_to_scrape}..."):
-                    scraped_text = document_processor.get_text_from_url(url_to_scrape)
-                    if scraped_text:
-                        process_uploaded_content(current_business_id, scraped_text)
-                    else:
-                        st.error(f"Could not scrape content from {url_to_scrape}.")
+                raw_content = document_processor.get_text_from_url(url_to_scrape)
+                process_and_store_content(business_id, raw_content)
             else:
-                st.warning("Please enter a URL to scrape.")
+                st.warning("Please enter a URL.")
 
-        st.write("---")
-        st.subheader("Your Embed Code (Simulated)")
-        st.code(f"""
-<script src="https://yourdomain.com/chatbot-widget.js?businessId={current_business_id}"></script>
+        st.info("Status: ✅ Agent is Ready.", icon="✅")
+        st.button("Retrain Agent", help="This will re-process all existing sources. (Functionality to be added)")
+
+    with tab2:
+        st.subheader("Customize Your Agent")
+        with st.form("customization_form"):
+            agent_name = st.text_input("Agent Name", value=current_business['agent_name'])
+            welcome_message = st.text_area("Welcome Message", value=current_business['welcome_message'], height=150)
+            personality = st.selectbox("Personality", ["friendly", "formal", "concise"], index=["friendly", "formal", "concise"].index(current_business['personality']))
+            brand_color = st.color_picker("Brand Color", value=current_business['brand_color'])
+            
+            submitted = st.form_submit_button("Save Customizations")
+            if submitted:
+                update_business_settings(business_id, agent_name, welcome_message, personality, brand_color)
+                st.success("Settings saved successfully!")
+                st.rerun()
+
+    with tab3:
+        st.subheader("Get Your Embed Code")
+        st.write("Copy this code snippet and paste it into your website's HTML, just before the closing `</body>` tag.")
+        # Note: In a real product, this URL would be your public server's domain
+        embed_code = f"""
 <div id="chatbot-container"></div>
-        """, language="html")
-        st.caption("This code snippet would be placed on your business website.")
+<script src="http://your_public_ip:8000/script.js" data-business-id="{business_id}"></script>
+        """
+        st.code(embed_code, language="html")
 
-
-elif page_selection == "Simulated Chat":
-    st.header("Simulated Chat with Your AI Agent")
-
-    if not st.session_state['business_data']:
-        st.warning("No businesses registered. Please go to the 'Business Dashboard' to register one and upload content.")
-    else:
-        business_options = {
-            data.get('name', biz_id): biz_id
-            for biz_id, data in st.session_state['business_data'].items()
-        }
-        selected_chat_business_display_name = st.selectbox(
-            "Select a business to chat with:",
-            options=list(business_options.keys()),
-            key="chat_biz_select"
-        )
-        selected_chat_business_id = business_options[selected_chat_business_display_name]
-
-        if selected_chat_business_id not in st.session_state['chat_history']:
-            st.session_state['chat_history'][selected_chat_business_id] = []
-
-        st.subheader(f"Chat with {selected_chat_business_display_name} Bot")
-
-        for message in st.session_state['chat_history'][selected_chat_business_id]:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
-
-        if prompt := st.chat_input("Ask your question here..."):
-            st.session_state['chat_history'][selected_chat_business_id].append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
-
-            with st.chat_message("assistant"):
-                with st.spinner("Thinking..."):
-                    query_embedding = document_processor.generate_embeddings([prompt])[0]
-                    retrieved_texts = vector_store_manager.search_faiss_index(selected_chat_business_id, query_embedding)
-
-                    if not retrieved_texts:
-                        response = "I couldn't find any relevant information in the knowledge base for that question. Please try rephrasing or ask about something else."
-                    else:
-                        context = "\n\n".join(retrieved_texts)
-
-                        # --- NEW: DETAILED SYSTEM PROMPT FOR PERSONA ---
-                        system_prompt = f"""
-                        You are a friendly, helpful, and professional customer service AI assistant for the company '{selected_chat_business_display_name}'.
-                        Your personality should be welcoming and conversational.
-
-                        **Your Instructions:**
-                        1.  **Primary Goal:** Your main purpose is to answer the user's question based *only* on the "Retrieved Information" provided below.
-                        2.  **Detailed Answers:** When the user asks about the company, use the retrieved information to provide a detailed, clear, and comprehensive explanation. Use formatting like bullet points or bold text if it helps make the answer easier to understand.
-                        3.  **Friendly Tone:** Always maintain a positive and friendly tone. Start your answers with a friendly greeting (e.g., "Great question!", "Certainly!", "I can help with that!").
-                        4.  **Handling Unknowns:** If the answer to a question cannot be found in the "Retrieved Information," you MUST say: "I'm sorry, but I couldn't find specific information about that in our knowledge base. Is there anything else I can help you with?" DO NOT make up answers.
-                        5.  **General Conversation:** If the user's question is a simple greeting or small talk (like "hello", "how are you?"), respond naturally and friendly without mentioning the retrieved information.
-                        """
-
-                        # --- NEW: USER PROMPT WITH CONTEXT ---
-                        user_prompt_with_context = f"""
-                        **Retrieved Information:**
-                        ---
-                        {context}
-                        ---
-
-                        **User's Question:** {prompt}
-                        """
-
-                        # --- NEW: CONSTRUCT THE MESSAGE PAYLOAD ---
-                        messages_payload = [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt_with_context}
-                        ]
-
-                        # --- NEW: CALL THE UPDATED FUNCTION ---
-                        response = llm_interface.generate_response_with_groq(messages_payload)
-
-                st.markdown(response)
-                st.session_state['chat_history'][selected_chat_business_id].append({"role": "assistant", "content": response})
+    with tab4:
+        st.subheader("Analytics")
+        conn = get_db_connection()
+        logs = conn.execute('SELECT question, COUNT(*) as count FROM chat_logs WHERE business_id = ? GROUP BY question ORDER BY count DESC LIMIT 10', (business_id,)).fetchall()
+        daily_queries = conn.execute("SELECT COUNT(*) FROM chat_logs WHERE business_id = ? AND DATE(timestamp) = DATE('now')", (business_id,)).fetchone()[0]
+        conn.close()
+        
+        st.metric("Queries Today", daily_queries)
+        st.write("**Most Asked Questions:**")
+        if logs:
+            for log in logs:
+                st.write(f"- {log['question']} ({log['count']} times)")
+        else:
+            st.write("No questions have been asked yet.")

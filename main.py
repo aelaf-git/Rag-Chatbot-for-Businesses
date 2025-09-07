@@ -1,72 +1,84 @@
-# main.py - Your Production API Backend
-from fastapi import FastAPI
+import sqlite3
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import uvicorn
-
-# --- NEW: Import the CORS middleware ---
 from fastapi.middleware.cors import CORSMiddleware
 
-# Import our existing RAG modules
 import document_processor
 import vector_store_manager
 import llm_interface
 
 app = FastAPI()
 
-# --- NEW: Add the CORS middleware to your app ---
-# This is the "permission slip" that tells browsers it's okay to connect.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins (e.g., 'null', 'http://localhost:3000')
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-# --- END OF NEW SECTION ---
 
+def get_db_connection():
+    conn = sqlite3.connect('chatbot_app.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
-# Define the request data structure
+# --- NEW ENDPOINT: To fetch widget configuration ---
+@app.get("/config/{business_id}")
+def get_config(business_id: str):
+    conn = get_db_connection()
+    business = conn.execute('SELECT * FROM businesses WHERE id = ?', (business_id,)).fetchone()
+    conn.close()
+    if business is None:
+        raise HTTPException(status_code=404, detail="Business not found")
+    return dict(business)
+
 class ChatRequest(BaseModel):
     question: str
     businessId: str
 
 @app.post("/chat")
 def chat_endpoint(request: ChatRequest):
-    """This function is called by the JavaScript widget."""
     print(f"Received question for business {request.businessId}: {request.question}")
     
+    conn = get_db_connection()
+    business = conn.execute('SELECT * FROM businesses WHERE id = ?', (request.businessId,)).fetchone()
+    if business is None:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Business configuration not found")
+
     query_embedding = document_processor.generate_embeddings([request.question])[0]
     retrieved_texts = vector_store_manager.search_faiss_index(request.businessId, query_embedding)
 
     if not retrieved_texts:
-        return {"answer": "I'm sorry, but I couldn't find any information related to that question."}
-    
-    context = "\n\n".join(retrieved_texts)
-    
-    # The full system prompt for the bot's personality
-    system_prompt = f"""
-    You are a friendly, helpful, and professional customer service AI assistant.
-    Your personality should be welcoming and conversational.
+        final_answer = "I'm sorry, but I couldn't find specific information about that. Would you like me to connect you with our team?"
+    else:
+        context = "\n\n".join(retrieved_texts)
+        personality_map = {
+            "friendly": "You are a friendly, helpful, and professional customer service AI assistant for the company '{name}'. Your personality should be welcoming and conversational.",
+            "formal": "You are a formal and direct AI assistant for '{name}'. Provide precise information without unnecessary pleasantries.",
+            "concise": "You are a concise AI assistant for '{name}'. Get straight to the point and provide short, clear answers."
+        }
+        
+        system_prompt = personality_map.get(business['personality'], personality_map['friendly']).format(name=business['name'])
+        system_prompt += "\n\n**Your Instructions:**..." # Add the rest of your detailed instructions here
 
-    **Your Instructions:**
-    1.  **Primary Goal:** Your main purpose is to answer the user's question based *only* on the "Retrieved Information" provided below.
-    2.  **Detailed Answers:** When the user asks about the company, use the retrieved information to provide a detailed, clear, and comprehensive explanation. Use formatting like bullet points or bold text if it helps make the answer easier to understand.
-    3.  **Friendly Tone:** Always maintain a positive and friendly tone. Start your answers with a friendly greeting (e.g., "Great question!", "Certainly!", "I can help with that!").
-    4.  **Handling Unknowns:** If the answer to a question cannot be found in the "Retrieved Information," you MUST say: "I'm sorry, but I couldn't find specific information about that in our knowledge base. Is there anything else I can help you with?" DO NOT make up answers.
-    5.  **General Conversation:** If the user's question is a simple greeting or small talk (like "hello", "how are you?"), respond naturally and friendly without mentioning the retrieved information.
-    """
+        user_prompt_with_context = f"Retrieved Information:\n{context}\n\nUser Question:\n{request.question}"
+        
+        messages_payload = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt_with_context}
+        ]
+        
+        final_answer = llm_interface.generate_response_with_groq(messages_payload)
 
-    user_prompt_with_context = f"Retrieved Information: {context}\n\nUser Question: {request.question}"
+    # Log the conversation to the database
+    conn.execute('INSERT INTO chat_logs (business_id, question, answer) VALUES (?, ?, ?)',
+                 (request.businessId, request.question, final_answer))
+    conn.commit()
+    conn.close()
     
-    messages_payload = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt_with_context}
-    ]
-    
-    response = llm_interface.generate_response_with_groq(messages_payload)
-    
-    return {"answer": response}
+    return {"answer": final_answer}
 
 if __name__ == "__main__":
-    # This runs the API server on localhost port 8000
     uvicorn.run(app, host="0.0.0.0", port=8000)
