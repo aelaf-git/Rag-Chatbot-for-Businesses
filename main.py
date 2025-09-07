@@ -12,12 +12,21 @@ import llm_interface
 
 app = FastAPI()
 
+# --- THIS IS THE CORRECTED CORS BLOCK ---
+# We will explicitly list the domains that are allowed to connect.
+origins = [
+    "https://brilliant-halva-3b002a.netlify.app",  # Your Netlify frontend
+    "http://localhost",                          # For XAMPP testing
+    "http://127.0.0.1",                          # Another localhost variant
+    "null"                                       # To allow local file:// testing
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,       # Use our specific list of origins
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],         # Allow all methods (GET, POST, etc.)
+    allow_headers=["*"],         # Allow all headers
 )
 
 def get_db_connection():
