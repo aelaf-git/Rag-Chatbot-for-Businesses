@@ -9,7 +9,7 @@ if os.path.exists('.env'):
     load_dotenv()
 BACKEND_GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-def generate_response_with_groq(messages: List[Dict], api_key: str, model: str = "llama3-70b-8192") -> str:
+def generate_response_with_groq(messages: List[Dict], api_key: str, model: str = "openai/gpt-oss-120b") -> str:
     """
     Generates a response using Groq's chat completion API.
     Accepts a list of message dictionaries and the API key directly.
