@@ -1,46 +1,46 @@
 import streamlit as st
-import sqlite3
-import uuid
-import os
-import llm_interface
+import sqlite3 # Keep for potential fallback, though not used
 import psycopg2
 import psycopg2.extras
+import uuid
+import os
 
 # Import our custom modules
 import document_processor
 import vector_store_manager
+import llm_interface
 
 st.set_page_config(layout="wide", page_title="AI Agent Dashboard")
 
 def get_db_connection():
-    # This will read the secret from the Streamlit Cloud's secrets manager
     database_url = st.secrets["DATABASE_URL"]
-    
-    # --- THIS IS THE CRUCIAL FIX ---
-    # Append the SSL requirement to the URL if it's not already there.
     if "sslmode" not in database_url:
         database_url += "?sslmode=require"
-    # --- END OF FIX ---
-
     conn = psycopg2.connect(database_url)
-    conn.cursor_factory = psycopg2.extras.DictCursor
     return conn
 
 # --- Business Management Functions ---
 def get_all_businesses():
     conn = get_db_connection()
-    businesses = conn.execute('SELECT * FROM businesses').fetchall()
+    # --- FIX: Create a cursor ---
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute('SELECT * FROM businesses')
+    businesses = cursor.fetchall()
+    cursor.close()
     conn.close()
     return businesses
 
 def update_business_settings(business_id, agent_name, welcome_message, personality, brand_color):
     conn = get_db_connection()
-    conn.execute('''
+    # --- FIX: Create a cursor ---
+    cursor = conn.cursor()
+    cursor.execute('''
         UPDATE businesses 
-        SET agent_name = ?, welcome_message = ?, personality = ?, brand_color = ?
-        WHERE id = ?
+        SET agent_name = %s, welcome_message = %s, personality = %s, brand_color = %s
+        WHERE id = %s
     ''', (agent_name, welcome_message, personality, brand_color, business_id))
     conn.commit()
+    cursor.close()
     conn.close()
 
 # --- Content Processing Function ---
@@ -67,11 +67,8 @@ def process_and_store_content(business_id, raw_content):
 
 # --- Main App ---
 st.title("🤖 AI Agent Dashboard")
-
 st.sidebar.header("Business Selection")
 businesses = get_all_businesses()
-
-# --- THIS IS THE CORRECTED SECTION ---
 business_options = {b['name']: b['id'] for b in businesses} if businesses else {}
 selected_name = None
 
@@ -79,7 +76,6 @@ if business_options:
     selected_name = st.sidebar.selectbox("Select a Business", list(business_options.keys()))
 else:
     st.sidebar.info("No businesses found. Please register one below.")
-# --- END OF CORRECTION ---
 
 # New Business Registration
 with st.sidebar.expander("Register New Business"):
@@ -91,8 +87,11 @@ with st.sidebar.expander("Register New Business"):
             else:
                 new_id = str(uuid.uuid4())
                 conn = get_db_connection()
-                conn.execute('INSERT INTO businesses (id, name) VALUES (?, ?)', (new_id, new_business_name))
+                # --- FIX: Create a cursor ---
+                cursor = conn.cursor()
+                cursor.execute('INSERT INTO businesses (id, name) VALUES (%s, %s)', (new_id, new_business_name))
                 conn.commit()
+                cursor.close()
                 conn.close()
                 st.sidebar.success(f"Business '{new_business_name}' registered!")
                 st.rerun()
@@ -103,12 +102,14 @@ with st.sidebar.expander("Register New Business"):
 if selected_name:
     business_id = business_options[selected_name]
     conn = get_db_connection()
-    current_business = conn.execute('SELECT * FROM businesses WHERE id = ?', (business_id,)).fetchone()
+    # --- FIX: Create a cursor ---
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute('SELECT * FROM businesses WHERE id = %s', (business_id,))
+    current_business = cursor.fetchone()
+    cursor.close()
     conn.close()
 
     st.header(f"Managing: {current_business['name']}")
-
-    # REPLACE the st.tabs line with THIS BLOCK
 
     tab1, tab2, tab5, tab3, tab4 = st.tabs(["📚 Knowledge Sources", "🎨 Customize Agent", "🧪 Test Your Agent", "🚀 Deploy", "📊 Analytics"])
 
@@ -237,11 +238,18 @@ if selected_name:
         """
         st.code(embed_code, language="html")
 
+
     with tab4:
         st.subheader("Analytics")
         conn = get_db_connection()
-        logs = conn.execute('SELECT question, COUNT(*) as count FROM chat_logs WHERE business_id = ? GROUP BY question ORDER BY count DESC LIMIT 10', (business_id,)).fetchall()
-        daily_queries = conn.execute("SELECT COUNT(*) FROM chat_logs WHERE business_id = ? AND DATE(timestamp) = DATE('now')", (business_id,)).fetchone()[0]
+        # --- FIX: Create a cursor ---
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute('SELECT question, COUNT(*) as count FROM chat_logs WHERE business_id = %s GROUP BY question ORDER BY count DESC LIMIT 10', (business_id,))
+        logs = cursor.fetchall()
+        cursor.execute("SELECT COUNT(*) FROM chat_logs WHERE business_id = %s AND DATE(timestamp) = CURRENT_DATE", (business_id,))
+        daily_queries_result = cursor.fetchone()
+        daily_queries = daily_queries_result[0] if daily_queries_result else 0
+        cursor.close()
         conn.close()
         
         st.metric("Queries Today", daily_queries)
@@ -251,3 +259,4 @@ if selected_name:
                 st.write(f"- {log['question']} ({log['count']} times)")
         else:
             st.write("No questions have been asked yet.")
+
