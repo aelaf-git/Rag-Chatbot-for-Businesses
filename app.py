@@ -14,8 +14,18 @@ st.set_page_config(layout="wide", page_title="AI Agent Dashboard")
 
 def get_db_connection():
     database_url = st.secrets["DATABASE_URL"]
+<<<<<<< HEAD
     if "sslmode" not in database_url:
         database_url += "?sslmode=require"
+=======
+    
+    # --- THIS IS THE CRUCIAL FIX ---
+    # Append the SSL requirement to the URL if it's not already there.
+    if "sslmode" not in database_url:
+        database_url += "?sslmode=require"
+    # --- END OF FIX ---
+
+>>>>>>> a97e585afb1bf3345b7a4d060047fbbc503712d6
     conn = psycopg2.connect(database_url)
     return conn
 
@@ -259,4 +269,7 @@ if selected_name:
                 st.write(f"- {log['question']} ({log['count']} times)")
         else:
             st.write("No questions have been asked yet.")
+<<<<<<< HEAD
 
+=======
+>>>>>>> a97e585afb1bf3345b7a4d060047fbbc503712d6
