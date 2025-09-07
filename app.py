@@ -2,6 +2,7 @@ import streamlit as st
 import sqlite3
 import uuid
 import os
+import llm_interface
 
 # Import our custom modules
 import document_processor
@@ -96,7 +97,9 @@ if selected_name:
 
     st.header(f"Managing: {current_business['name']}")
 
-    tab1, tab2, tab3, tab4 = st.tabs(["📚 Knowledge Sources", "🎨 Customize Agent", "🚀 Deploy", "📊 Analytics"])
+    # REPLACE the st.tabs line with THIS BLOCK
+
+    tab1, tab2, tab5, tab3, tab4 = st.tabs(["📚 Knowledge Sources", "🎨 Customize Agent", "🧪 Test Your Agent", "🚀 Deploy", "📊 Analytics"])
 
     with tab1:
         st.subheader("Upload Knowledge Sources")
@@ -148,6 +151,69 @@ if selected_name:
                 update_business_settings(business_id, agent_name, welcome_message, personality, brand_color)
                 st.success("Settings saved successfully!")
                 st.rerun()
+
+    # --- THIS IS THE NEW TAB'S LOGIC ---
+    with tab5:
+        st.subheader("Test Your Agent in Real-time")
+        st.write("Interact with your AI agent here to see how it responds with the current knowledge and personality settings.")
+
+        # Initialize chat history in session state for this specific business
+        if f"chat_history_{business_id}" not in st.session_state:
+            st.session_state[f"chat_history_{business_id}"] = []
+
+        # Display existing messages
+        for message in st.session_state[f"chat_history_{business_id}"]:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+        # Chat input
+        if prompt := st.chat_input(f"Ask {current_business['agent_name']} a question..."):
+            # Add user message to history
+            st.session_state[f"chat_history_{business_id}"].append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+
+            # Generate and display bot response
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    # This logic is copied from main.py and adapted for Streamlit
+                    query_embedding = document_processor.generate_embeddings([prompt])[0]
+                    retrieved_texts = vector_store_manager.search_faiss_index(business_id, query_embedding)
+
+                    if not retrieved_texts:
+                        final_answer = "I'm sorry, but I couldn't find specific information about that. Would you like me to connect you with our team?"
+                    else:
+                        context = "\n\n".join(retrieved_texts)
+                        personality_map = {
+                            "friendly": "You are a friendly, helpful, and professional customer service AI assistant for the company '{name}'. Your personality should be welcoming and conversational.",
+                            "formal": "You are a formal and direct AI assistant for '{name}'. Provide precise information without unnecessary pleasantries.",
+                            "concise": "You are a concise AI assistant for '{name}'. Get straight to the point and provide short, clear answers."
+                        }
+                        
+                        system_prompt = personality_map.get(current_business['personality'], personality_map['friendly']).format(name=current_business['name'])
+                        
+                        # Add the detailed instructions for the AI
+                        system_prompt += """
+                        \n\n**Your Instructions:**
+                        1.  **Primary Goal:** Your main purpose is to answer the user's question based *only* on the "Retrieved Information" provided below.
+                        2.  **Detailed Answers:** When the user asks about the company, use the retrieved information to provide a detailed, clear, and comprehensive explanation. Use formatting like bullet points or bold text if it helps make the answer easier to understand.
+                        3.  **Handling Unknowns:** If the answer to a question cannot be found in the "Retrieved Information," you MUST say: "I'm sorry, but I couldn't find specific information about that in our knowledge base. Is there anything else I can help you with?" DO NOT make up answers.
+                        4.  **General Conversation:** If the user's question is a simple greeting or small talk (like "hello", "how are you?"), respond naturally and friendly without mentioning the retrieved information.
+                        """
+
+                        user_prompt_with_context = f"Retrieved Information:\n{context}\n\nUser Question:\n{prompt}"
+                        
+                        messages_payload = [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt_with_context}
+                        ]
+                        
+                        final_answer = llm_interface.generate_response_with_groq(messages_payload)
+
+                    st.markdown(final_answer)
+                    # Add bot response to history
+                    st.session_state[f"chat_history_{business_id}"].append({"role": "assistant", "content": final_answer})
+    # --- END OF NEW TAB ---
 
     with tab3:
         st.subheader("Get Your Embed Code")
