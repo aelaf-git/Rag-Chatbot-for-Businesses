@@ -21,11 +21,12 @@ import llm_interface
 
 app = FastAPI()
 
-# --- CORS CONFIGURATION ---
+# --- THE DEFINITIVE CORS CONFIGURATION ---
+# This list explicitly allows your frontend domains and local testing origins.
 origins = [
     "https://brilliant-halva-3b002a.netlify.app", # Your Netlify frontend
     "http://localhost",                          # For XAMPP
-    "http://localhost:8080",
+    "http://localhost:8080",                     # Common local dev port
     "http://127.0.0.1",
     "null"                                       # For file:/// local testing
 ]
@@ -34,17 +35,15 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allows ALL methods, including OPTIONS, GET, POST
+    allow_headers=["*"],  # Allows ALL headers
 )
 
 # --- DATABASE CONNECTION ---
 def get_db_connection():
     # Read the database URL directly from the environment.
-    # This works both locally (with .env) and on Render.
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
-        # This will cause a clean crash with a clear error if the variable is missing.
         raise ValueError("DATABASE_URL environment variable not found.")
     
     if "sslmode" not in database_url:
@@ -98,6 +97,7 @@ def chat_endpoint(request: ChatRequest):
                 "concise": "You are a concise AI assistant for '{name}'. Get straight to the point."
             }
             system_prompt = personality_map.get(business['personality'], personality_map['friendly']).format(name=business['name'])
+            # You can add your more detailed instructions to the system_prompt here if needed
             user_prompt_with_context = f"Retrieved Information:\n{context}\n\nUser Question:\n{request.question}"
             messages_payload = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt_with_context}]
             
