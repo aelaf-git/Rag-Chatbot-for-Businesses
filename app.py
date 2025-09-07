@@ -3,6 +3,7 @@ import psycopg2
 import psycopg2.extras
 import uuid
 import os
+from database_setup import setup_database
 
 # Import our custom modules
 import document_processor
@@ -74,6 +75,16 @@ if business_options:
     selected_name = st.sidebar.selectbox("Select a Business", list(business_options.keys()))
 else:
     st.sidebar.info("No businesses found. Please register one below.")
+
+with st.sidebar.expander("⚠️ Admin Actions"):
+    st.write("This button will create the necessary tables in the database. Only click it once if the app is showing a table-related error.")
+    if st.button("Initialize Database Tables"):
+        try:
+            setup_database()
+            st.sidebar.success("Database tables initialized successfully! The app will now reload.")
+            st.rerun()
+        except Exception as e:
+            st.sidebar.error(f"Database setup failed: {e}")
 
 # New Business Registration
 with st.sidebar.expander("Register New Business"):

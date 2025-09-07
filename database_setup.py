@@ -1,21 +1,20 @@
 import os
 import psycopg2
-from dotenv import load_dotenv
+import streamlit as st
 
-if os.path.exists('.env'):
-    load_dotenv()
-
-database_url = os.getenv("DATABASE_URL")
+def get_db_connection_for_setup():
+    """Gets DB connection using Streamlit secrets."""
+    database_url = st.secrets["DATABASE_URL"]
+    if "sslmode" not in database_url:
+        database_url += "?sslmode=require"
+    return psycopg2.connect(database_url)
 
 def setup_database():
-    # Render provides the database URL in an environment variable
-    database_url = os.getenv("DATABASE_URL")
-    if not database_url:
-        raise ValueError("DATABASE_URL environment variable is not set.")
-    
-    conn = psycopg2.connect(database_url)
+    """Creates the necessary tables in the PostgreSQL database."""
+    conn = get_db_connection_for_setup()
     cursor = conn.cursor()
 
+    # Table to store business information and customizations
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS businesses (
         id TEXT PRIMARY KEY,
@@ -27,6 +26,7 @@ def setup_database():
     )
     ''')
 
+    # Table to log chat interactions for analytics
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS chat_logs (
         log_id SERIAL PRIMARY KEY,
@@ -42,6 +42,3 @@ def setup_database():
     cursor.close()
     conn.close()
     print("Database setup or verification complete.")
-
-if __name__ == '__main__':
-    setup_database()
