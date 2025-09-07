@@ -15,6 +15,13 @@ st.set_page_config(layout="wide", page_title="AI Agent Dashboard")
 def get_db_connection():
     # This will read the secret from the Streamlit Cloud's secrets manager
     database_url = st.secrets["DATABASE_URL"]
+    
+    # --- THIS IS THE CRUCIAL FIX ---
+    # Append the SSL requirement to the URL if it's not already there.
+    if "sslmode" not in database_url:
+        database_url += "?sslmode=require"
+    # --- END OF FIX ---
+
     conn = psycopg2.connect(database_url)
     conn.cursor_factory = psycopg2.extras.DictCursor
     return conn
