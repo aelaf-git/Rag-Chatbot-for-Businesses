@@ -4,14 +4,22 @@ from typing import List, Dict
 from dotenv import load_dotenv
 from groq import Groq
 
-load_dotenv() # Load environment variables from .env file
+# --- THIS IS THE KEY CHANGE ---
+# Load .env file ONLY if the script is run locally for testing.
+# On a server like Render, the environment variables are set directly.
+if os.path.exists('.env'):
+    load_dotenv()
 
+# Get the API key from the environment variables.
+# os.getenv() will read the secret file you set on Render.
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
+# Now, check if the key was found.
 if not GROQ_API_KEY:
-    raise ValueError("GROQ_API_KEY not found in .env file.")
+    raise ValueError("GROQ_API_KEY is not set in the environment or .env file.")
+# --- END OF CHANGE ---
 
 client = Groq(api_key=GROQ_API_KEY)
-
 # --- Function now accepts a list of messages for role-playing ---
 def generate_response_with_groq(messages: List[Dict], model: str = "openai/gpt-oss-120b") -> str:
     """

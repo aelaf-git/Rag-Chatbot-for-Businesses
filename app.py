@@ -15,7 +15,6 @@ st.set_page_config(layout="wide", page_title="AI Agent Dashboard")
 def get_db_connection():
     database_url = os.getenv("DATABASE_URL")
     conn = psycopg2.connect(database_url)
-    # Use DictCursor to get results as dictionaries (like sqlite3.Row)
     conn.cursor_factory = psycopg2.extras.DictCursor
     return conn
 
