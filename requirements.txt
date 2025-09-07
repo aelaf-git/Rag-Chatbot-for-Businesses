@@ -1,9 +1,12 @@
+fastapi
+uvicorn
+gunicorn  # <-- Important for production
 streamlit
-python-dotenv
-beautifulsoup4
-requests
-pypdf
+psycopg2-binary
 sentence-transformers
 faiss-cpu
 groq
-fastapi "uvicorn[standard]"
+pypdf
+beautifulsoup4
+requests
+python-dotenv

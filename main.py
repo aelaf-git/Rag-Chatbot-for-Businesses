@@ -3,7 +3,9 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
-
+import os
+import psycopg2
+import psycopg2.extras
 import document_processor
 import vector_store_manager
 import llm_interface
@@ -19,8 +21,10 @@ app.add_middleware(
 )
 
 def get_db_connection():
-    conn = sqlite3.connect('chatbot_app.db')
-    conn.row_factory = sqlite3.Row
+    database_url = os.getenv("DATABASE_URL")
+    conn = psycopg2.connect(database_url)
+    # Use DictCursor to get results as dictionaries (like sqlite3.Row)
+    conn.cursor_factory = psycopg2.extras.DictCursor
     return conn
 
 # --- NEW ENDPOINT: To fetch widget configuration ---

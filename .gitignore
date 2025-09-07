@@ -134,6 +134,13 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
+# .gitignore
+venv/
+__pycache__/
+*.pyc
+chatbot_app.db
+data/
+
 # Environments
 .env
 .envrc

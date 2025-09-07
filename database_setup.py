@@ -1,10 +1,18 @@
-import sqlite3
+import os
+import psycopg2
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def setup_database():
-    conn = sqlite3.connect('chatbot_app.db')
+    # Render provides the database URL in an environment variable
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise ValueError("DATABASE_URL environment variable is not set.")
+    
+    conn = psycopg2.connect(database_url)
     cursor = conn.cursor()
 
-    # Table to store business information and customizations
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS businesses (
         id TEXT PRIMARY KEY,
@@ -16,21 +24,21 @@ def setup_database():
     )
     ''')
 
-    # Table to log chat interactions for analytics
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS chat_logs (
-        log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        log_id SERIAL PRIMARY KEY,
         business_id TEXT NOT NULL,
         question TEXT NOT NULL,
         answer TEXT NOT NULL,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (business_id) REFERENCES businesses (id)
     )
     ''')
 
     conn.commit()
+    cursor.close()
     conn.close()
-    print("Database setup complete. 'chatbot_app.db' is ready.")
+    print("Database setup or verification complete.")
 
 if __name__ == '__main__':
     setup_database()

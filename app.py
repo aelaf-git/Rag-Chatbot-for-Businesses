@@ -3,6 +3,8 @@ import sqlite3
 import uuid
 import os
 import llm_interface
+import psycopg2
+import psycopg2.extras
 
 # Import our custom modules
 import document_processor
@@ -11,8 +13,10 @@ import vector_store_manager
 st.set_page_config(layout="wide", page_title="AI Agent Dashboard")
 
 def get_db_connection():
-    conn = sqlite3.connect('chatbot_app.db')
-    conn.row_factory = sqlite3.Row
+    database_url = os.getenv("DATABASE_URL")
+    conn = psycopg2.connect(database_url)
+    # Use DictCursor to get results as dictionaries (like sqlite3.Row)
+    conn.cursor_factory = psycopg2.extras.DictCursor
     return conn
 
 # --- Business Management Functions ---
