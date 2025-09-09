@@ -118,4 +118,5 @@ python main.py
 ```
 4. Save the `index.html` file.
 5. **Open the `index.html` file in your web browser.**
+
 The chatbot bubble should appear, and you can now have a full conversation with your AI agent. Check the terminal running main.py to see the live GET /config and POST /chat requests as you interact with the bot.# Rag-Chatbot-for-Businesses
