@@ -15,11 +15,11 @@ When a website visitor asks a question, the following happens:
 3. **Retrieve:** The backend searches the business's specific FAISS index file to find the chunks of text from the original documents that are most semantically similar to the question's embedding.
 4. **Augment:** The retrieved text chunks are combined with the original question and a system prompt (defining the AI's personality) into a comprehensive final prompt.
 5. **Generate:** This final, augmented prompt is sent to the Groq API, which uses a Large Language Model (LLM) to generate a natural, conversational answer based only on the provided context.
-Tech Stack
-Backend:
-Framework: FastAPI
-Server: Uvicorn with Gunicorn
-Language: Python
+## Tech Stack
+- **Backend:**
+  - **Framework:** FastAPI
+  - **Server:** Uvicorn with Gunicorn
+  - **Language:** Python
 Dashboard:
 Framework: Streamlit
 Database:
