@@ -4,17 +4,17 @@ The application is built with a modern, decoupled architecture, featuring a Pyth
 ## Working Principles & Architecture
 The application operates on a decoupled, three-service model that communicates via a central database. This ensures scalability and separation of concerns.
 1. **Backend API (The "Brain")**: A FastAPI server responsible for all AI logic. It handles chat requests, performs the RAG process, and connects to the database to fetch configurations and log interactions.
-Admin Dashboard (The "Control Panel"): A Streamlit application that allows business owners to manage their accounts, customize their chatbot's appearance and personality, and upload knowledge source documents for training.
-Frontend Widget (The "Face"): A lightweight, self-contained vanilla JavaScript application that business owners embed on their websites. It handles the UI, user interaction, and communication with the Backend API.
-Database (The "Memory"): A central PostgreSQL database that stores all user data, business configurations, customizations, and chat logs for analytics.
-Vector Store (The "Trained Knowledge"): FAISS (Facebook AI Similarity Search) is used to create and store vector embeddings from the uploaded documents. These are saved as .bin files on the server's file system.
-The RAG (Retrieval-Augmented Generation) Flow
+2. **Admin Dashboard (The "Control Panel"):** A Streamlit application that allows business owners to manage their accounts, customize their chatbot's appearance and personality, and upload knowledge source documents for training.
+3. **Frontend Widget (The "Face"):** A lightweight, self-contained vanilla JavaScript application that business owners embed on their websites. It handles the UI, user interaction, and communication with the Backend API.
+4. **Database (The "Memory"):** A central PostgreSQL database that stores all user data, business configurations, customizations, and chat logs for analytics.
+5. **Vector Store (The "Trained Knowledge"):** FAISS (Facebook AI Similarity Search) is used to create and store vector embeddings from the uploaded documents. These are saved as .bin files on the server's file system.
+### The RAG (Retrieval-Augmented Generation) Flow
 When a website visitor asks a question, the following happens:
-Receive: The FastAPI backend receives the question and the business's unique ID.
-Embed: The question is converted into a numerical vector (an embedding).
-Retrieve: The backend searches the business's specific FAISS index file to find the chunks of text from the original documents that are most semantically similar to the question's embedding.
-Augment: The retrieved text chunks are combined with the original question and a system prompt (defining the AI's personality) into a comprehensive final prompt.
-Generate: This final, augmented prompt is sent to the Groq API, which uses a Large Language Model (LLM) to generate a natural, conversational answer based only on the provided context.
+1. **Receive:** The FastAPI backend receives the question and the business's unique ID.
+2. **Embed:** The question is converted into a numerical vector (an embedding).
+3. **Retrieve:** The backend searches the business's specific FAISS index file to find the chunks of text from the original documents that are most semantically similar to the question's embedding.
+4. **Augment:** The retrieved text chunks are combined with the original question and a system prompt (defining the AI's personality) into a comprehensive final prompt.
+5. **Generate:** This final, augmented prompt is sent to the Groq API, which uses a Large Language Model (LLM) to generate a natural, conversational answer based only on the provided context.
 Tech Stack
 Backend:
 Framework: FastAPI
