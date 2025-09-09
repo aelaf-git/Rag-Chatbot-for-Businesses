@@ -20,29 +20,29 @@ When a website visitor asks a question, the following happens:
   - **Framework:** FastAPI
   - **Server:** Uvicorn with Gunicorn
   - **Language:** Python
-Dashboard:
-Framework: Streamlit
-Database:
-PostgreSQL (with psycopg2 connector)
-AI & RAG:
-LLM Provider: Groq (using Llama3 models)
-Embedding Model: sentence-transformers (specifically all-MiniLM-L6-v2)
-Vector Store: FAISS (Facebook AI Similarity Search)
-Frontend:
-Vanilla JavaScript (ES6)
-HTML5 & CSS3
-Deployment (Cloud):
-Backend: Render (Web Service)
-Dashboard: Streamlit Community Cloud
-Frontend: Netlify
-Database: Render (PostgreSQL)
-Local Development Setup Instructions
+- **Dashboard:**
+  - **Framework:** Streamlit
+- **Database:**
+  - PostgreSQL (with psycopg2 connector)
+- **AI & RAG:**
+  - **LLM Provider:** Groq (using Llama3 models)
+  - **Embedding Model:** sentence-transformers (specifically all-MiniLM-L6-v2)
+  - **Vector Store:** FAISS (Facebook AI Similarity Search)
+- **Frontend:**
+  - Vanilla JavaScript (ES6)
+  - HTML5 & CSS3
+- **Deployment (Cloud):**
+  - **Backend:** Render (Web Service)
+  - **Dashboard:** Streamlit Community Cloud
+  - **Frontend:** Netlify
+  - **Database:** Render (PostgreSQL)
+## Local Development Setup Instructions
 This guide will walk you through running the entire application suite on your local machine. This setup uses your local machine to run the dashboard and backend, which connect to a live cloud database on Render.
-Prerequisites
-Python 3.10+
-Git
-A Render account (for the PostgreSQL database)
-A GroqCloud account (for the LLM API key)
+### Prerequisites
+- Python 3.10+
+- Git
+- A Render account (for the PostgreSQL database)
+- A GroqCloud account (for the LLM API key)
 Step 1: Clone the Repository
 code
 Bash
