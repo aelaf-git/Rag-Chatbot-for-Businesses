@@ -1,7 +1,7 @@
 # AI Agent SaaS Chatbot
 This project is a complete, multi-tenant Software-as-a-Service (SaaS) application that allows businesses to create and deploy a custom AI chatbot on their websites. The chatbot is trained on the business's own knowledge base (PDFs, website content, etc.) and is powered by a Retrieval-Augmented Generation (RAG) architecture.
 The application is built with a modern, decoupled architecture, featuring a Python backend, a Streamlit admin dashboard, and a vanilla JavaScript frontend widget.
-##Working Principles & Architecture
+## Working Principles & Architecture
 The application operates on a decoupled, three-service model that communicates via a central database. This ensures scalability and separation of concerns.
 1.**Backend API (The "Brain")**: A FastAPI server responsible for all AI logic. It handles chat requests, performs the RAG process, and connects to the database to fetch configurations and log interactions.
 Admin Dashboard (The "Control Panel"): A Streamlit application that allows business owners to manage their accounts, customize their chatbot's appearance and personality, and upload knowledge source documents for training.
