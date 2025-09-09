@@ -12,7 +12,7 @@ import llm_interface
 st.set_page_config(layout="wide", page_title="AI Agent Dashboard")
 
 def get_db_connection():
-    """Establishes a connection to the PostgreSQL database."""
+    """Establishes a connection to the PostgreSQL database using Streamlit secrets."""
     database_url = st.secrets["DATABASE_URL"]
     if "sslmode" not in database_url:
         database_url += "?sslmode=require"
@@ -100,6 +100,7 @@ def process_and_store_content(business_id, raw_content):
             business_id, embeddings, text_chunks, current_index, current_texts
         )
     st.success(f"Knowledge base updated with {len(text_chunks)} new chunks.")
+
 
 # --- Main App Execution ---
 try:
@@ -232,8 +233,8 @@ try:
                                 \n\n**Your Instructions:**
                                 1.  **Primary Goal:** Your main purpose is to answer the user's question based *only* on the "Retrieved Information" provided below.
                                 2.  **Detailed Answers:** Use the retrieved information to provide a detailed, clear, and comprehensive explanation.
-                                3.  **Handling Unknowns:** If the answer to a question cannot be found, you MUST say: "I'm sorry, but I couldn't find specific information about that in our knowledge base." DO NOT make up answers.
-                                4.  **General Conversation:** If the user's question is a simple greeting or small talk, respond naturally and friendly.
+                                3.  **Handling Unknowns:** If the answer to a question cannot be found in the "Retrieved Information," you MUST say: "I'm sorry, but I couldn't find specific information about that in our knowledge base."
+                                4.  **General Conversation:** If the user's question is a simple greeting or small talk, respond naturally and friendly without mentioning the retrieved information.
                                 """
                                 user_prompt_with_context = f"Retrieved Information:\n{context}\n\nUser Question:\n{prompt}"
                                 messages_payload = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt_with_context}]
@@ -245,10 +246,11 @@ try:
             with tab3:
                 st.subheader("Get Your Embed Code")
                 st.write("Copy this code snippet and paste it into your website's HTML, just before the closing `</body>` tag.")
-                live_backend_url = "https://chatbot-backend-ayze.onrender.com" # <-- IMPORTANT: Replace with your actual Render backend URL
+                # This URL should be your live Netlify frontend URL in production
+                live_frontend_url = "http://127.0.0.1:5500" # Placeholder for local testing
                 embed_code = f"""
 <div id="chatbot-container"></div>
-<script src="{live_backend_url}/script.js" data-business-id="{business_id}"></script>
+<script src="{live_frontend_url}/script.js" data-business-id="{business_id}"></script>
                 """
                 st.code(embed_code, language="html")
 

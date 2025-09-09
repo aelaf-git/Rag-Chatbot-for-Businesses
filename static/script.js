@@ -1,7 +1,7 @@
 // script.js (Final Production Version for Netlify)
 (function() {
     // --- CRITICAL: CONFIGURE THIS WITH YOUR LIVE RENDER URL ---
-    const API_BASE_URL = "https://chatbot-backend-ayze.onrender.com";
+    const API_BASE_URL = "http://127.0.0.1:8000";
 
     // Find the script tag and get the businessId
     const scriptTag = document.currentScript;
