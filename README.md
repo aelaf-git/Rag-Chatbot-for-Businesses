@@ -47,7 +47,6 @@ This guide will walk you through running the entire application suite on your lo
 ````
 Bash
 ````
-```
 git clone <your-repository-url>
 cd RAG-Chatbot-for-Businesses
 ```
