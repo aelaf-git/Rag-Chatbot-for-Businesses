@@ -20,7 +20,7 @@ app = FastAPI()
 # --- CRITICAL: CORS CONFIGURATION FOR PRODUCTION ---
 # This list MUST include the URL of your live frontend on Netlify.
 origins = [
-    "https://brilliant-halva-3b002a.netlify.app", # <-- IMPORTANT: REPLACE with your actual Netlify URL
+    "https://brilliant-halva-3b002a.netlify.app/", # <-- IMPORTANT: REPLACE with your actual Netlify URL
     # You can add other domains here later if needed, e.g., "https://www.my-customer.com"
 ]
 
