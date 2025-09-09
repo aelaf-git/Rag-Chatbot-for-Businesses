@@ -65,38 +65,38 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 ### Step 3: Set Up Your Cloud Database
-Log in to your Render account.
-Create a New PostgreSQL database.
-Wait for the status to become "Available".
-On the database's "Info" page, copy the External Database URL. It will look like postgres://user:password@host:port/database.
-Step 4: Configure Your Secret Credentials
+1. Log in to your **Render** account.
+2. Create a **New PostgreSQL** database.
+3. Wait for the status to become "Available".
+4. On the database's "Info" page, copy the **External Database URL**. It will look like `postgres://user:password@host:port/database`.
+### Step 4: Configure Your Secret Credentials
 You need to create two secret files for your two local applications to use.
-A. For the Backend (.env file):
-In the root of the project, create a file named .env.
-Paste the following into it, replacing the placeholders with your real credentials.
-code
-Code
+#### A. For the Backend (.env file):
+1. In the root of the project, create a file named `.env`.
+2. Paste the following into it, replacing the placeholders with your real credentials.
+```
 # Secrets for the FastAPI backend (main.py)
 DATABASE_URL="YOUR_RENDER_EXTERNAL_DATABASE_URL"
 GROQ_API_KEY="YOUR_GROQ_API_KEY"
-B. For the Dashboard (secrets.toml file):
-Create a new folder in the project root named .streamlit.
-Inside .streamlit, create a new file named secrets.toml.
-Paste the following into it, using the same credentials.
-code
-Toml
+```
+#### B. For the Dashboard (secrets.toml file):
+1. Create a new folder in the project root named .streamlit.
+2. Inside .streamlit, create a new file named secrets.toml.
+3. Paste the following into it, using the same credentials.
+```
 # Secrets for the Streamlit dashboard (app.py)
 DATABASE_URL = "YOUR_RENDER_EXTERNAL_DATABASE_URL"
 GROQ_API_KEY = "YOUR_GROQ_API_KEY"
-Step 5: Run the Applications
-You will need two separate terminals running simultaneously.
-Terminal 1: Run the Dashboard & Initialize Database
-Make sure your virtual environment is activated.
-Run the Streamlit app:
-code
-Bash
+```
+### Step 5: Run the Applications
+You will need **two separate terminals** running simultaneously.
+#### Terminal 1: Run the Dashboard & Initialize Database
+1. Make sure your virtual environment is activated.
+2. Run the Streamlit app:
+```
 streamlit run app.py
-Open http://localhost:8501 in your browser.
+```
+3. Open `http://localhost:8501` in your browser.
 On the very first run, the app will automatically connect to your Render database and create the necessary tables. You will see a toast message confirming this.
 Use the dashboard to register a new business and upload a PDF to train its knowledge base.
 Go to the "Deploy" tab and copy the business-id for your newly created business.
