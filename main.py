@@ -5,50 +5,43 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import FileResponse
 from dotenv import load_dotenv
 
-# --- CRITICAL: LOAD ENVIRONMENT VARIABLES ---
-# This will load a local .env file if it exists (for testing).
-# On Render, it does nothing, and we rely on the environment variables
-# set in the Render dashboard.
 load_dotenv()
 
-# Import our custom modules
 import document_processor
 import vector_store_manager
 import llm_interface
 
 app = FastAPI()
 
-# --- THE DEFINITIVE CORS CONFIGURATION ---
+# --- THE CORRECTED CORS CONFIGURATION ---
 # This list explicitly allows your frontend domains and local testing origins.
+# IMPORTANT: When you deploy, you must add your Netlify URL to this list!
 origins = [
-    "https://brilliant-halva-3b002a.netlify.app", # Your Netlify frontend
-    "http://localhost",                          # For XAMPP
-    "http://localhost:8080",                     # Common local dev port
+    # "https://your-netlify-frontend.netlify.app", # Add this for production
+    "http://localhost",
     "http://127.0.0.1",
-    "null"                                       # For file:/// local testing
+    "http://127.0.0.1:5500",
+    "http://192.168.0.102",
+    "null"
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=origins,  # <-- Use the 'origins' list you defined
     allow_credentials=True,
-    allow_methods=["*"],  # Allows ALL methods, including OPTIONS, GET, POST
-    allow_headers=["*"],  # Allows ALL headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # --- DATABASE CONNECTION ---
 def get_db_connection():
-    # Read the database URL directly from the environment.
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
-        raise ValueError("DATABASE_URL environment variable not found.")
-    
+        raise ValueError("DATABASE_URL not found in .env file.")
     if "sslmode" not in database_url:
         database_url += "?sslmode=require"
-        
     conn = psycopg2.connect(database_url)
     return conn
 
@@ -88,18 +81,21 @@ def chat_endpoint(request: ChatRequest):
         retrieved_texts = vector_store_manager.search_faiss_index(request.businessId, query_embedding)
 
         if not retrieved_texts:
-            final_answer = "I'm sorry, but I couldn't find specific information about that. Would you like me to connect you with our team?"
+            final_answer = "I'm sorry, but I couldn't find specific information about that in the knowledge base."
         else:
             context = "\n\n".join(retrieved_texts)
             personality_map = {
-                "friendly": "You are a friendly, helpful, and professional customer service AI assistant for '{name}'. Your personality should be welcoming and conversational.",
-                "formal": "You are a formal and direct AI assistant for '{name}'. Provide precise information.",
-                "concise": "You are a concise AI assistant for '{name}'. Get straight to the point."
+                "friendly": "You are a friendly, helpful, and professional AI assistant for the company '{name}'.",
+                "formal": "You are a formal and direct AI assistant for the company '{name}'.",
+                "concise": "You are a concise AI assistant for the company '{name}'."
             }
-            system_prompt = personality_map.get(business['personality'], personality_map['friendly']).format(name=business['name'])
-            # You can add your more detailed instructions to the system_prompt here if needed
-            user_prompt_with_context = f"Retrieved Information:\n{context}\n\nUser Question:\n{request.question}"
-            messages_payload = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt_with_context}]
+            system_prompt = personality_map.get(business['personality'], 'friendly').format(name=business['name'])
+            user_prompt_with_context = f"Retrieved Information:\n---\n{context}\n---\n\nUser's Question: {request.question}"
+            
+            messages_payload = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt_with_context}
+            ]
             
             groq_api_key = os.getenv("GROQ_API_KEY")
             final_answer = llm_interface.generate_response_with_groq(messages_payload, api_key=groq_api_key)
@@ -108,15 +104,12 @@ def chat_endpoint(request: ChatRequest):
         conn.commit()
         cursor.close()
         conn.close()
+        
         return {"answer": final_answer}
     except Exception as e:
         print(f"ERROR in /chat endpoint: {e}")
-        raise HTTPException(status_code=500, detail="An internal error occurred.")
-
-# Fallback endpoint for the script, though Netlify is preferred
-@app.get("/script.js")
-async def get_script():
-    return FileResponse('static/script.js')
+        raise HTTPException(status_code=500, detail="An internal server error occurred.")
 
 if __name__ == "__main__":
+    print("Starting local backend server on http://0.0.0.0:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -1,6 +1,6 @@
 // Self-invoking function to avoid polluting the global scope
 (function() {
-    const API_BASE_URL = "https://chatbot-backend-ayze.onrender.com"; // Your live backend URL
+    const API_BASE_URL = "http://192.168.0.102"; // Your live backend URL
 
     // Find the script tag and get the businessId from the 'data-business-id' attribute
     const scriptTag = document.currentScript;
