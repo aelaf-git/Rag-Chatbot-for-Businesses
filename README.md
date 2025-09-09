@@ -44,8 +44,10 @@ This guide will walk you through running the entire application suite on your lo
 - A Render account (for the PostgreSQL database)
 - A GroqCloud account (for the LLM API key)
 ### Step 1: Clone the Repository
-```
+````
 Bash
+````
+```
 git clone <your-repository-url>
 cd RAG-Chatbot-for-Businesses
 ```
