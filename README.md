@@ -45,18 +45,13 @@ This guide will walk you through running the entire application suite on your lo
 - A GroqCloud account (for the LLM API key)
 ### Step 1: Clone the Repository
 ````
-Bash
 git clone <your-repository-url>
 cd RAG-Chatbot-for-Businesses
 ````
-````python
-print("Hello, World!")
-````
-Step 2: Set Up Python Virtual Environment
+### Step 2: Set Up Python Virtual Environment
 It's crucial to use a virtual environment to manage dependencies.
 code
-\``` 
-Bash
+``` 
 # Create a virtual environment
 python -m venv venv
 
@@ -68,7 +63,8 @@ source venv/bin/activate
 
 # Install all required libraries
 pip install -r requirements.txt
-Step 3: Set Up Your Cloud Database
+```
+### Step 3: Set Up Your Cloud Database
 Log in to your Render account.
 Create a New PostgreSQL database.
 Wait for the status to become "Available".
