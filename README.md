@@ -3,7 +3,7 @@ This project is a complete, multi-tenant Software-as-a-Service (SaaS) applicatio
 The application is built with a modern, decoupled architecture, featuring a Python backend, a Streamlit admin dashboard, and a vanilla JavaScript frontend widget.
 ## Working Principles & Architecture
 The application operates on a decoupled, three-service model that communicates via a central database. This ensures scalability and separation of concerns.
-1.**Backend API (The "Brain")**: A FastAPI server responsible for all AI logic. It handles chat requests, performs the RAG process, and connects to the database to fetch configurations and log interactions.
+1. **Backend API (The "Brain")**: A FastAPI server responsible for all AI logic. It handles chat requests, performs the RAG process, and connects to the database to fetch configurations and log interactions.
 Admin Dashboard (The "Control Panel"): A Streamlit application that allows business owners to manage their accounts, customize their chatbot's appearance and personality, and upload knowledge source documents for training.
 Frontend Widget (The "Face"): A lightweight, self-contained vanilla JavaScript application that business owners embed on their websites. It handles the UI, user interaction, and communication with the Backend API.
 Database (The "Memory"): A central PostgreSQL database that stores all user data, business configurations, customizations, and chat logs for analytics.
