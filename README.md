@@ -97,25 +97,25 @@ You will need **two separate terminals** running simultaneously.
 streamlit run app.py
 ```
 3. Open `http://localhost:8501` in your browser.
-On the very first run, the app will automatically connect to your Render database and create the necessary tables. You will see a toast message confirming this.
-Use the dashboard to register a new business and upload a PDF to train its knowledge base.
-Go to the "Deploy" tab and copy the business-id for your newly created business.
-Terminal 2: Run the Backend API Server
-Open a new terminal and navigate to the project folder.
-Make sure your virtual environment is activated.
-Run the FastAPI server:
-code
-Bash
+4. **On the very first run**, the app will automatically connect to your Render database and create the necessary tables. You will see a toast message confirming this.
+5. Use the dashboard to register a new business and upload a PDF to train its knowledge base.
+6. Go to the "Deploy" tab and copy the `business-id` for your newly created business.
+#### Terminal 2: Run the Backend API Server
+1. Open a new terminal and navigate to the project folder.
+2. Make sure your virtual environment is activated.
+3. Run the FastAPI server:
+```
 python main.py
-You will see Uvicorn running on http://0.0.0.0:8000. This terminal will now show live API request logs.
-Step 6: Test the Frontend Widget
-Navigate to the static folder in the project.
-Open the index.html file in a text editor.
-Find the <script> tag at the bottom and paste the business-id you copied from the dashboard.
-code
-Html
+```
+4. You will see `Uvicorn running on http://0.0.0.0:8000`. This terminal will now show live API request logs.
+### Step 6: Test the Frontend Widget
+1. Navigate to the `static` folder in the project.
+2. Open the `index.html` file in a text editor.
+3. Find the `<script>` tag at the bottom and paste the `business-id` you copied from the dashboard.
+```
 <script src="script.js" 
         data-business-id="PASTE_YOUR_BUSINESS_ID_HERE"></script>
-Save the index.html file.
-Open the index.html file in your web browser.
+```
+4. Save the `index.html` file.
+5. **Open the `index.html` file in your web browser.**
 The chatbot bubble should appear, and you can now have a full conversation with your AI agent. Check the terminal running main.py to see the live GET /config and POST /chat requests as you interact with the bot.# Rag-Chatbot-for-Businesses
