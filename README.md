@@ -1,4 +1,4 @@
-#AI Agent SaaS Chatbot
+#AI Agent SaaS Chatbot#
 This project is a complete, multi-tenant Software-as-a-Service (SaaS) application that allows businesses to create and deploy a custom AI chatbot on their websites. The chatbot is trained on the business's own knowledge base (PDFs, website content, etc.) and is powered by a Retrieval-Augmented Generation (RAG) architecture.
 The application is built with a modern, decoupled architecture, featuring a Python backend, a Streamlit admin dashboard, and a vanilla JavaScript frontend widget.
 ##Working Principles & Architecture
