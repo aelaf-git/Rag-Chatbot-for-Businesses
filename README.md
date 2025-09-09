@@ -45,7 +45,7 @@ This guide will walk you through running the entire application suite on your lo
 - A GroqCloud account (for the LLM API key)
 ### Step 1: Clone the Repository
 ````
-git clone <your-repository-url>
+git clone <https://github.com/aelaf-git/Rag-Chatbot-for-Businesses>
 cd RAG-Chatbot-for-Businesses
 ````
 ### Step 2: Set Up Python Virtual Environment
